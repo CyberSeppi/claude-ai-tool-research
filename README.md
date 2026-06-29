@@ -26,9 +26,35 @@ npm run test:skill          # helper-script tests
 npm run research:build      # rebuild report.json + report.md from data/raw-records.json
 ```
 
-The chat backend uses `askClaude()` (`app/server/claude.mjs`) — Claude Agent SDK over the
-Pro/Max subscription, **no `ANTHROPIC_API_KEY`** (keeping it unset avoids
-pay-per-token billing).
+## Chat backend
+
+Two providers (pick via `LLM_PROVIDER` in `.env`):
+
+- `api` (default) — direct REST against an OpenAI-compatible
+  `/chat/completions` endpoint. Works inside the container. Requires
+  `LLM_API_KEY`, `LLM_AUTH_CLIENT_ID`, `LLM_AUTH_CLIENT_SECRET` plus the
+  base/auth/model knobs documented in `.env.example`. The default config
+  targets the BMW GenAI gateway used by `ops-ai-cockpit`.
+- `cli` — wraps the local `claude` CLI via the Agent SDK (Pro/Max
+  subscription, no API key). Free local dev only — the CLI is not
+  installed inside the Docker container.
+
+The chat backend lives under `app/server/llm/`:
+`config.mjs` → `oauth.mjs` (M2M token cache) → `provider-api.mjs` /
+`provider-cli.mjs` → `index.mjs` (selector). Mocked-fetch tests run via
+`node --test app/server/llm/*.test.mjs`.
+
+## RAG retrieval
+
+*Coming in a later slice.* Today's `scope=global` chat stuffs all
+records into the context. The follow-up will embed every record's
+fields + the repo's README (markdown-chunked) at boot, store the
+vectors in `app/db/embeddings.sqlite`, and let global chat retrieve the
+top-K most similar records. Set `EMBEDDINGS_ENABLED=false` to keep the
+fallback behaviour. Bump `EMBEDDINGS_PROMPT_VERSION` to invalidate
+stored vectors when the embed-source template changes. README fetching
+uses `GITHUB_TOKEN` (`public_repo` scope is enough). Spec:
+`docs/superpowers/specs/2026-06-29-chat-rag-design.md`.
 
 ## Run the web app (container)
 

@@ -45,7 +45,13 @@ done
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 
+# .env is gitignored — load it if present, otherwise the LLM client
+# will refuse to boot inside the container with a clear error.
+ENV_ARGS=()
+if [ -f "$ROOT/.env" ]; then ENV_ARGS+=(--env-file "$ROOT/.env"); fi
+
 docker run -d --name "$NAME" \
+  "${ENV_ARGS[@]}" \
   --user "${HOST_UID}:${HOST_GID}" \
   -p "127.0.0.1:${PORT}:8787" \
   -e PORT=8787 -e DATA_DIR=/data -e DB_DIR=/db -e HOME=/home/app \
