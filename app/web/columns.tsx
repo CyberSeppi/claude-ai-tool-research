@@ -1,0 +1,101 @@
+import type { ColumnDef } from "@tanstack/react-table";
+import type { Rec } from "./types";
+
+export const columns: ColumnDef<Rec>[] = [
+  {
+    id: "select",
+    header: "",
+    size: 32,
+    cell: (info) => {
+      const meta = info.table.options.meta as { selected: Set<string>; toggle: (id: string) => void };
+      const id = info.row.original.id;
+      return (
+        <input
+          type="checkbox"
+          checked={meta.selected.has(id)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => meta.toggle(id)}
+          title="Select for compare"
+          aria-label="Select for compare"
+        />
+      );
+    },
+  },
+  {
+    accessorKey: "flagged",
+    header: "Flag",
+    size: 48,
+    cell: (info) => {
+      const meta = info.table.options.meta as { onFlag: (id: string, v: boolean) => void };
+      const r = info.row.original;
+      return (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); meta.onFlag(r.id, !r.flagged); }}
+          className={`text-base leading-none transition-colors ${r.flagged ? "text-accent" : "text-dim hover:text-accent"}`}
+          title={r.flagged ? "Flagged — click to remove" : "Flag as interesting"}
+          aria-label={r.flagged ? "Remove flag" : "Flag as interesting"}
+        >
+          {r.flagged ? "★" : "☆"}
+        </button>
+      );
+    },
+  },
+  {
+    accessorKey: "name",
+    header: "Repo",
+    cell: (info) => (
+      <a
+        className="font-mono text-accent underline-offset-2 hover:underline"
+        href={info.row.original.url}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {info.getValue() as string}
+      </a>
+    ),
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    cell: (info) => (
+      <span className="font-mono text-[11px] tracking-wide uppercase text-muted">
+        {info.getValue() as string}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "stars",
+    header: "Stars",
+    cell: (info) => (
+      <span className="font-mono text-sm">
+        {info.row.original.stars_display ?? "—"}
+      </span>
+    ),
+    sortingFn: "basic",
+  },
+  {
+    accessorKey: "installed",
+    header: "Installed",
+    cell: (info) => (
+      <span className={`font-mono text-sm ${info.getValue() ? "text-accent" : "text-dim"}`}>
+        {info.getValue() ? "✓" : "—"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "use_cases",
+    header: "Use-cases",
+    enableSorting: false,
+    cell: (info) => (
+      <div className="flex flex-wrap gap-1">
+        {((info.getValue() as string[]) ?? []).map((u) => (
+          <span key={u} className="rounded bg-raised border border-edge px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted">
+            {u}
+          </span>
+        ))}
+      </div>
+    ),
+  },
+  { accessorKey: "description", header: "Description" },
+];

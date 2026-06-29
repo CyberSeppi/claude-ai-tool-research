@@ -1,0 +1,13 @@
+# Docker build context = repo root (compose `context: .`), so this file
+# (not app/.dockerignore) is the one Docker actually reads.
+.git
+.superpowers
+node_modules
+**/node_modules
+app/dist
+app/db
+**/*.test.mjs
+**/*.test.ts
+**/*.test.tsx
+**/__fixtures__
+docs

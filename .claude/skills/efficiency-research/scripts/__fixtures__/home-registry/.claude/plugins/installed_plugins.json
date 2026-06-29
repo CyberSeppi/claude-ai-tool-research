@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "plugins": {
+    "superpowers@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "/home/testuser/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3",
+        "version": "6.0.3"
+      }
+    ],
+    "caveman@caveman": [
+      {
+        "installPath": "/home/testuser/.claude/plugins/cache/caveman/caveman/655b7d9c5431",
+        "version": "655b7d9c5431"
+      }
+    ]
+  }
+}

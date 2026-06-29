@@ -1,0 +1,50 @@
+# research-topics.yaml — controls WHAT the efficiency-research skill researches.
+# Edit freely. weight: 1 (minor) .. 5 (must-have) — higher weight = research deeper
+# and rank/prioritise its hits more strongly in the report.
+#
+# category must be one of: plugin-skill | mcp-server | token-tool
+
+topics:
+  - topic: "Claude Code plugins, skill packs, subagent collections, plugin marketplaces"
+    category: plugin-skill
+    weight: 5
+
+  - topic: "MCP servers for web search & research-source access (multi-engine, scraping, deep research)"
+    category: mcp-server
+    weight: 5
+
+  - topic: "MCP servers for up-to-date / version-specific docs (reduce hallucinated APIs)"
+    category: mcp-server
+    weight: 4
+
+  - topic: "MCP servers for dev-workflow automation (git/GitHub, CI, issues/PRs)"
+    category: mcp-server
+    weight: 3
+
+  - topic: "Token-saving & context-compression tools (terser output, smaller context)"
+    category: token-tool
+    weight: 4
+
+  - topic: "Skills / agents for brainstorming & ideation"
+    category: plugin-skill
+    weight: 3
+
+  - topic: "Curated GitHub directories / awesome-lists / aggregators that catalogue the best Claude Code plugins, skills & MCP servers for development (e.g. hesreallyhim/awesome-claude-code, VoltAgent/awesome-claude-code-subagents) — these are meta-sources to mine for more entries"
+    category: plugin-skill
+    weight: 4
+
+  - topic: "RAG / vector-database / semantic-search MCP servers (Pinecone, Chroma, Qdrant, Weaviate, Milvus, pgvector, LanceDB) for grounding Claude Code in custom knowledge"
+    category: mcp-server
+    weight: 5
+
+  - topic: "Code-RAG / repo-aware retrieval & embedding MCP servers and skills (codebase indexing, semantic code search, large-monorepo grounding) — boost Claude Code accuracy on big codebases"
+    category: mcp-server
+    weight: 5
+
+  - topic: "Memory / persistent-context / knowledge-graph MCP servers for long-running RAG-style retrieval across Claude Code sessions"
+    category: mcp-server
+    weight: 4
+
+  - topic: "Embedding & retrieval libraries / skills / token-efficient context-grounding tools (cuts hallucinations by injecting only the relevant chunks)"
+    category: token-tool
+    weight: 4

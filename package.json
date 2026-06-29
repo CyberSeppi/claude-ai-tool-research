@@ -1,0 +1,12 @@
+{
+  "name": "claude-ai-skills-report",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "engines": { "node": ">=20" },
+  "description": "Claude efficiency research skill (.claude/skills/efficiency-research). Web app lives in app/.",
+  "scripts": {
+    "test:skill": "node --test .claude/skills/efficiency-research/scripts/*.test.mjs",
+    "research:build": "node .claude/skills/efficiency-research/scripts/build-report.mjs"
+  }
+}
