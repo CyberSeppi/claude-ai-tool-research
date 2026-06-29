@@ -1,14 +1,18 @@
 import { Hono } from "hono";
 import { loadReport } from "./data.mjs";
 import { readFlags, setFlag } from "./flags.mjs";
-import { buildChatContext } from "./chat.mjs";
-import { askClaude } from "./claude.mjs";
+import { runChat } from "./chat.mjs";
 
 export function createApp(opts = {}) {
   const dataDir = opts.dataDir ?? process.env.DATA_DIR ?? "../data";
   const dbDir = opts.dbDir ?? process.env.DB_DIR ?? "./db";
+  const llm = opts.llm ?? null;                   // injected — no default LLM here
+  const retriever = opts.retriever ?? null;
+  const embeddingsCfg = opts.embeddingsCfg ?? { enabled: false };
+
   const app = new Hono();
   app.get("/api/health", (c) => c.json({ ok: true }));
+
   app.get("/api/records", (c) => {
     const { generated_at, records } = loadReport(dataDir);
     const flags = readFlags(dbDir);
@@ -19,10 +23,12 @@ export function createApp(opts = {}) {
     }));
     return c.json({ generated_at, records: merged });
   });
+
   app.post("/api/refresh", (c) => {
     const { generated_at, records } = loadReport(dataDir);
     return c.json({ generated_at, count: records.length });
   });
+
   app.post("/api/records/:id/flag", async (c) => {
     const id = c.req.param("id");
     const patch = await c.req.json().catch(() => ({}));
@@ -32,20 +38,32 @@ export function createApp(opts = {}) {
     });
     return c.json({ id, flag });
   });
+
   app.post("/api/chat", async (c) => {
     const { scope = "global", ids = [], message = "" } = await c.req.json().catch(() => ({}));
     if (!message.trim()) return c.json({ error: "empty message" }, 400);
+    if (!llm) return c.json({ error: "chat not configured" }, 503);
+
     const { records } = loadReport(dataDir);
     const flags = readFlags(dbDir);
     const merged = records.map((r) => ({ ...r, flagged: Boolean(flags[r.id]?.interesting) }));
-    const context = buildChatContext(merged, scope, ids);
+
     try {
-      const answer = await askClaude(`${context}\n\n---\nUser question: ${message}`);
-      return c.json({ answer });
+      const { answer, retrieval } = await runChat({
+        records: merged,
+        scope,
+        ids,
+        message,
+        llm,
+        retriever,
+        embeddingsCfg,
+      });
+      return c.json({ answer, retrieval });
     } catch (err) {
       console.error("[/api/chat]", err);
       return c.json({ error: "chat request failed" }, 502);
     }
   });
+
   return app;
 }
