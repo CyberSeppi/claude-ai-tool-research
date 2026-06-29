@@ -50,14 +50,40 @@ HOST_GID="$(id -g)"
 ENV_ARGS=()
 if [ -f "$ROOT/.env" ]; then ENV_ARGS+=(--env-file "$ROOT/.env"); fi
 
+# Claude CLI auth lives in TWO host paths next to each other:
+#   ~/.claude/             — the directory (.credentials.json, settings, mcp config)
+#   ~/.claude.json         — the top-level config file
+# The CLI checks both. Mount each individually so LLM_PROVIDER=cli works.
+# ~/.claude.json is mounted as a file (not a dir), so we touch it on the
+# host first to make sure the bind has something to bind to.
+[ -e "$HOME/.claude.json" ] || touch "$HOME/.claude.json"
+
+# If the host has set ANTHROPIC_BASE_URL (e.g. pointing at a local Claude
+# Code router, an SSH tunnel, or a corporate gateway), forward that into
+# the container with a host.docker.internal hop so `claude` CLI inside
+# the container can reach a service running on the host.
+#
+# This is generic: we pass through whatever env you set, we do NOT hard-
+# code any specific router product or URL. Set ANTHROPIC_BASE_URL +
+# (optionally) ANTHROPIC_AUTH_TOKEN in your shell or .env if you need it.
+CLI_ARGS=()
+if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
+  CLI_ARGS+=(--add-host=host.docker.internal:host-gateway)
+  CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}")
+fi
+[ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && CLI_ARGS+=(-e "ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}")
+[ -n "${ANTHROPIC_API_KEY:-}" ]    && CLI_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
+
 docker run -d --name "$NAME" \
   "${ENV_ARGS[@]}" \
+  "${CLI_ARGS[@]}" \
   --user "${HOST_UID}:${HOST_GID}" \
   -p "127.0.0.1:${PORT}:8787" \
   -e PORT=8787 -e DATA_DIR=/data -e DB_DIR=/db -e HOME=/home/app \
   -v "$ROOT/data:/data:ro" \
   -v "$ROOT/app/db:/db" \
   -v "$HOME/.claude:/home/app/.claude" \
+  -v "$HOME/.claude.json:/home/app/.claude.json" \
   "$IMAGE" >/dev/null
 
 echo "App:  http://localhost:${PORT}"

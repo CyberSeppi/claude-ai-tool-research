@@ -1,4 +1,12 @@
-const REQUIRED_API_SECRETS = ["LLM_API_KEY", "LLM_AUTH_CLIENT_ID", "LLM_AUTH_CLIENT_SECRET"];
+// LLM_API_KEY is always required when LLM_PROVIDER=api.
+// LLM_AUTH_* are OPTIONAL — only validate them when the user has set
+// LLM_AUTH_TOKEN_URL (signal that this endpoint uses OAuth M2M on top
+// of the API key). Anthropic direct and OpenAI direct do NOT need them.
+const REQUIRED_API_KEY = "LLM_API_KEY";
+const OAUTH_REQUIRED_WHEN_TOKEN_URL_SET = [
+  "LLM_AUTH_CLIENT_ID",
+  "LLM_AUTH_CLIENT_SECRET",
+];
 
 function parsePositiveInt(raw, fallback, name) {
   if (raw === undefined || String(raw).trim() === "") return fallback;
@@ -9,6 +17,10 @@ function parsePositiveInt(raw, fallback, name) {
   return n;
 }
 
+function isSet(v) {
+  return typeof v === "string" && v.trim() !== "";
+}
+
 export function loadLlmConfig(env = process.env) {
   const provider = (env.LLM_PROVIDER ?? "api").trim() || "api";
   if (provider !== "api" && provider !== "cli") {
@@ -16,7 +28,13 @@ export function loadLlmConfig(env = process.env) {
   }
 
   if (provider === "api") {
-    const missing = REQUIRED_API_SECRETS.filter((k) => !env[k] || env[k].trim() === "");
+    const missing = [];
+    if (!isSet(env[REQUIRED_API_KEY])) missing.push(REQUIRED_API_KEY);
+    if (isSet(env.LLM_AUTH_TOKEN_URL)) {
+      for (const k of OAUTH_REQUIRED_WHEN_TOKEN_URL_SET) {
+        if (!isSet(env[k])) missing.push(k);
+      }
+    }
     if (missing.length) {
       throw new Error(`Missing required LLM secrets in env: ${missing.join(", ")}`);
     }
@@ -24,15 +42,19 @@ export function loadLlmConfig(env = process.env) {
 
   return {
     provider,
-    apiBaseUrl: env.LLM_API_BASE_URL?.trim() || "https://api.gcp.cloud.bmw/llmapi/v1",
+    apiBaseUrl: env.LLM_API_BASE_URL?.trim() || "https://api.anthropic.com/v1",
     apiKey: env.LLM_API_KEY ?? "",
-    model: env.LLM_MODEL?.trim() || "gpt-4o",
-    maxCompletionTokens: parsePositiveInt(env.LLM_MAX_COMPLETION_TOKENS, 4096, "LLM_MAX_COMPLETION_TOKENS"),
+    model: env.LLM_MODEL?.trim() || "claude-sonnet-4-6",
+    maxCompletionTokens: parsePositiveInt(
+      env.LLM_MAX_COMPLETION_TOKENS,
+      4096,
+      "LLM_MAX_COMPLETION_TOKENS",
+    ),
     auth: {
-      tokenUrl: env.LLM_AUTH_TOKEN_URL?.trim() || "https://auth.bmwgroup.net/auth/oauth2/realms/root/realms/machine2machine/access_token",
+      tokenUrl: env.LLM_AUTH_TOKEN_URL?.trim() || "",
       clientId: env.LLM_AUTH_CLIENT_ID ?? "",
       clientSecret: env.LLM_AUTH_CLIENT_SECRET ?? "",
-      scope: env.LLM_AUTH_SCOPE?.trim() || "machine2machine",
+      scope: env.LLM_AUTH_SCOPE?.trim() || "",
     },
   };
 }

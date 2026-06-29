@@ -35,10 +35,29 @@ test("loadLlmConfig: cli provider skips secret validation", () => {
   assert.equal(cfg.model, "claude-sonnet-4-6");
 });
 
-test("loadLlmConfig: api provider throws listing every missing secret", () => {
+test("loadLlmConfig: api provider throws when LLM_API_KEY missing", () => {
   assert.throws(
     () => loadLlmConfig({ LLM_PROVIDER: "api" }),
-    /LLM_API_KEY.*LLM_AUTH_CLIENT_ID.*LLM_AUTH_CLIENT_SECRET/s,
+    /LLM_API_KEY/,
+  );
+});
+
+test("loadLlmConfig: api works with just LLM_API_KEY (no OAuth)", () => {
+  const cfg = loadLlmConfig({ LLM_PROVIDER: "api", LLM_API_KEY: "sk-ant-x" });
+  assert.equal(cfg.apiKey, "sk-ant-x");
+  assert.equal(cfg.apiBaseUrl, "https://api.anthropic.com/v1");
+  assert.equal(cfg.auth.tokenUrl, "");
+});
+
+test("loadLlmConfig: api with LLM_AUTH_TOKEN_URL requires client_id + client_secret", () => {
+  assert.throws(
+    () =>
+      loadLlmConfig({
+        LLM_PROVIDER: "api",
+        LLM_API_KEY: "k",
+        LLM_AUTH_TOKEN_URL: "https://auth/example/token",
+      }),
+    /LLM_AUTH_CLIENT_ID.*LLM_AUTH_CLIENT_SECRET/s,
   );
 });
 

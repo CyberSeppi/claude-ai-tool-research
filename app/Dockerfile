@@ -26,6 +26,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY app/package.json app/package-lock.json ./
 RUN npm ci --omit=dev
+# Install the `claude` CLI globally so LLM_PROVIDER=cli works inside the
+# container. The CLI reads ~/.claude/.credentials.json — which run.sh
+# bind-mounts to /home/app/.claude — to authenticate with the user's
+# Pro/Max subscription. Without this, the CLI provider errors with
+# "Not logged in" on first request.
+RUN npm install -g @anthropic-ai/claude-code
 COPY app/server ./server
 COPY --from=build /app/dist ./dist
 COPY --from=ca /tmp/bmw-trust-bundle.pem /etc/ssl/certs/bmw-trust-bundle.pem
