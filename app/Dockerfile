@@ -23,11 +23,13 @@ RUN apt-get update \
     fi \
  && test -e /tmp/extra-ca-bundle.pem
 
-# build stage: install + build frontend
+# build stage: install + build frontend.
+# Build doesn't need better-sqlite3 (server-only dep). Skipping postinstall
+# scripts avoids pulling python3/build-essential just for `vite build`.
 FROM node:24-slim AS build
 WORKDIR /app
 COPY app/package.json app/package-lock.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY app/ ./
 RUN npm run build
 
@@ -36,7 +38,16 @@ FROM node:24-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production
 COPY app/package.json app/package-lock.json ./
-RUN npm ci --omit=dev
+# better-sqlite3 11.x has no prebuilds for node 24 yet — install build
+# tools, compile from source, then strip the tools so the runtime image
+# stays slim. python3 / make / g++ together are ~150 MB; removing them
+# at the end takes us back to ~250 MB.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ \
+ && npm ci --omit=dev \
+ && apt-get purge -y python3 make g++ \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
 COPY app/server ./server
 COPY --from=build /app/dist ./dist
 COPY --from=ca /tmp/extra-ca-bundle.pem /etc/ssl/certs/extra-ca-bundle.pem
