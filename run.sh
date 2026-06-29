@@ -80,7 +80,14 @@ if [ -f "$ROOT/.env" ]; then ENV_ARGS+=(--env-file "$ROOT/.env"); fi
 # at a host-side service (router/proxy/SSH tunnel). Cheap, no side effect
 # when unused.
 CLI_ARGS=(--add-host=host.docker.internal:host-gateway)
-[ -n "${ANTHROPIC_BASE_URL:-}" ]   && CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}")
+if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
+  # localhost / 127.0.0.1 on the HOST means "this machine" — inside the
+  # container that points at the container's own loopback. Rewrite to
+  # host.docker.internal so a host-side router is actually reachable.
+  IN_CONTAINER_URL="${ANTHROPIC_BASE_URL//localhost/host.docker.internal}"
+  IN_CONTAINER_URL="${IN_CONTAINER_URL//127.0.0.1/host.docker.internal}"
+  CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${IN_CONTAINER_URL}")
+fi
 [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && CLI_ARGS+=(-e "ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}")
 [ -n "${ANTHROPIC_API_KEY:-}" ]    && CLI_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
 
