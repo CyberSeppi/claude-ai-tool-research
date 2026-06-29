@@ -17,7 +17,7 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
-# Load .env early so EXTRA_CA_BUNDLE_URL (and ANTHROPIC_* etc.) are
+# Load .env early so EXTRA_CA_BUNDLE_URL (and other build/run knobs) are
 # available below — set -a / +a auto-exports all loaded vars.
 if [ -f "$ROOT/.env" ]; then
   set -a
@@ -41,7 +41,7 @@ fi
 mkdir -p "$ROOT/app/db"
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 
-# 8787 is often occupied on this host — find a free port starting at $PORT
+# Default port 8787 is often busy on dev boxes — find a free port near it.
 is_free() { ! ss -ltn 2>/dev/null | grep -q "[:.]$1 "; }
 start="$PORT"; n=0
 while ! is_free "$PORT"; do
@@ -50,57 +50,30 @@ while ! is_free "$PORT"; do
 done
 [ "$PORT" != "$start" ] && echo "Host port $start busy -> using $PORT."
 
-# Run as the host user so files written into bind-mounts (./app/db, and the
-# OAuth-token cache under ~/.claude) stay owned by the host, not root.
-# node:24-slim has no passwd entry for arbitrary UIDs, so $HOME inside the
-# container would default to "/" — set HOME=/home/app and mount ~/.claude at
-# /home/app/.claude where the Agent SDK looks for it.
+# Run as the host user so files written into bind-mounts (./app/db) stay
+# host-owned. node:24-slim has no passwd entry for arbitrary UIDs, so $HOME
+# inside the container would default to "/" — point it at /home/app.
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 
-# .env is gitignored — load it if present, otherwise the LLM client
-# will refuse to boot inside the container with a clear error.
+# .env is gitignored — pass through if present. Without it the app will
+# refuse to boot with a clear error listing the missing keys.
 ENV_ARGS=()
 if [ -f "$ROOT/.env" ]; then ENV_ARGS+=(--env-file "$ROOT/.env"); fi
 
-# Claude CLI auth lives in TWO host paths next to each other:
-#   ~/.claude/             — the directory (.credentials.json, settings, mcp config)
-#   ~/.claude.json         — the top-level config file
-# The CLI checks both. Mount each individually so LLM_PROVIDER=cli works.
-# ~/.claude.json is mounted as a file (not a dir), so we touch it on the
-# host first to make sure the bind has something to bind to.
-[ -e "$HOME/.claude.json" ] || touch "$HOME/.claude.json"
-
-# LLM_PROVIDER=cli — forward the three official Anthropic SDK env vars
-# when set. The app reads them from .env (via --env-file above), but we
-# also forward whatever's in the user's shell so they can override per
-# invocation without editing .env.
-#
-# Always add host.docker.internal so the user can point ANTHROPIC_BASE_URL
-# at a host-side service (router/proxy/SSH tunnel). Cheap, no side effect
-# when unused.
-CLI_ARGS=(--add-host=host.docker.internal:host-gateway)
-if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
-  # localhost / 127.0.0.1 on the HOST means "this machine" — inside the
-  # container that points at the container's own loopback. Rewrite to
-  # host.docker.internal so a host-side router is actually reachable.
-  IN_CONTAINER_URL="${ANTHROPIC_BASE_URL//localhost/host.docker.internal}"
-  IN_CONTAINER_URL="${IN_CONTAINER_URL//127.0.0.1/host.docker.internal}"
-  CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${IN_CONTAINER_URL}")
-fi
-[ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && CLI_ARGS+=(-e "ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}")
-[ -n "${ANTHROPIC_API_KEY:-}" ]    && CLI_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
+# Always make the host reachable as `host.docker.internal` so users can
+# point LLM_API_BASE_URL at a host-side proxy (e.g. claude-bridge,
+# litellm, openrouter) without having to remember this flag.
+NET_ARGS=(--add-host=host.docker.internal:host-gateway)
 
 docker run -d --name "$NAME" \
   "${ENV_ARGS[@]}" \
-  "${CLI_ARGS[@]}" \
+  "${NET_ARGS[@]}" \
   --user "${HOST_UID}:${HOST_GID}" \
   -p "127.0.0.1:${PORT}:8787" \
   -e PORT=8787 -e DATA_DIR=/data -e DB_DIR=/db -e HOME=/home/app \
   -v "$ROOT/data:/data:ro" \
   -v "$ROOT/app/db:/db" \
-  -v "$HOME/.claude:/home/app/.claude" \
-  -v "$HOME/.claude.json:/home/app/.claude.json" \
   "$IMAGE" >/dev/null
 
 echo "App:  http://localhost:${PORT}"

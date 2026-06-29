@@ -31,58 +31,90 @@ npm run research:build      # rebuild report.json + report.md from data/raw-reco
 
 ## Chat backend
 
-Two providers, picked via `LLM_PROVIDER` in `.env`:
+One provider: a direct REST call to an OpenAI-compatible
+`/chat/completions` endpoint. Whatever URL you put in
+`LLM_API_BASE_URL` is where the app talks; defaults to
+`https://api.anthropic.com/v1`. Required env vars are documented in
+`.env.example`.
 
-### Provider: `api` (default — recommended)
+### Setup A — Anthropic API key (recommended)
 
-Direct REST against an OpenAI-compatible `/chat/completions` endpoint.
-Works inside the Docker container. Reaches whatever URL you put in
-`LLM_API_BASE_URL`; defaults to `https://api.anthropic.com/v1`.
+Get an API key at https://console.anthropic.com, then set:
 
-- Anthropic direct: set `LLM_API_KEY=sk-ant-…` and pick a `LLM_MODEL`.
-- Internal corporate / cloud gateway: set the base URL plus the optional
-  `LLM_AUTH_CLIENT_ID` / `LLM_AUTH_CLIENT_SECRET` / `LLM_AUTH_TOKEN_URL` /
-  `LLM_AUTH_SCOPE` to enable the OAuth M2M client-credentials flow.
+```env
+LLM_API_BASE_URL=https://api.anthropic.com/v1
+LLM_API_KEY=sk-ant-...
+LLM_MODEL=claude-sonnet-4-6
+```
 
-All knobs are documented in `.env.example`.
+Billed per token to your Anthropic account. Works inside the container.
 
-### Provider: `cli` (local development only)
+### Setup B — Claude Pro / Max / Team subscription (local dev only)
 
-Wraps the bundled `claude` CLI through `@anthropic-ai/claude-agent-sdk`.
-Three auth modes are supported — pick one in `.env`; the app refuses to
-start if none of them resolve:
+The app speaks the OpenAI wire format; Pro/Max subscriptions authenticate
+the official `claude` CLI, not direct API calls. To use a subscription
+you need a **local bridge process** that:
 
-| Mode | `.env` settings | Notes |
-|---|---|---|
-| **A — Anthropic API key** | `ANTHROPIC_API_KEY=sk-ant-…` | Simplest. Talks directly to `api.anthropic.com`. Billed per-token. |
-| **B — Local Anthropic-compat router** | `ANTHROPIC_BASE_URL=http://host.docker.internal:<port>`, `ANTHROPIC_AUTH_TOKEN=<router-token>` | For CCR, litellm, claude-bridge, etc. running on the host. `run.sh` adds `--add-host=host.docker.internal:host-gateway` automatically. |
-| **C — Mounted Pro/Max OAuth session** | (no env vars) | Run `claude /login` on the host first. `run.sh` bind-mounts `~/.claude/` + `~/.claude.json` so the in-container CLI inherits the Pro/Max session. |
+1. Listens on a port on your host (e.g. `:11434`).
+2. Accepts OpenAI-shaped `/chat/completions` requests.
+3. Forwards them through `claude` CLI (or its equivalent) using your
+   Pro/Max OAuth session in `~/.claude/`.
+
+Then point this app at the bridge:
+
+```env
+LLM_API_BASE_URL=http://host.docker.internal:11434/v1
+LLM_API_KEY=anything-non-empty
+```
+
+`run.sh` adds `--add-host=host.docker.internal:host-gateway` so a host
+service is reachable from the container by that name. The bridge handles
+the Anthropic↔OpenAI translation; this app stays vendor-neutral.
+
+Bridges that work (community projects, not endorsed):
+
+- [claude-bridge](https://github.com/badlogic/lemmy/tree/main/apps/claude-bridge) — bridges the OpenAI API to Claude Code's Pro/Max session
+- [claude-code-router](https://github.com/musistudio/claude-code-router) — routes `claude` CLI through configurable backends
+- [LiteLLM](https://github.com/BerriAI/litellm) — OpenAI-shape proxy over many providers
 
 > [!CAUTION]
-> **Using `LLM_PROVIDER=cli` in a publicly-deployed or shared application
-> would violate Anthropic's terms.** A Claude Pro / Max / Team
-> subscription is licensed for personal interactive use by the
-> subscriber. Wiring that subscription into a service that other people
-> chat with — even read-only — is "providing access to another person".
+> Using your Pro / Max / Team subscription as the backend of a
+> **publicly-deployed** or **multi-user** application would violate
+> Anthropic's terms. Those plans are licensed for personal interactive
+> use by the subscriber — wiring them into a service other people chat
+> with is "providing access to another person".
+>
 > See Anthropic's [Usage Policy](https://www.anthropic.com/legal/aup),
 > [Consumer Terms](https://www.anthropic.com/legal/consumer-terms), and
-> the explicit Claude Code subscription-vs-API discussion in [Anthropic's
-> Help Center](https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan).
+> the explicit Claude Code subscription-vs-API guidance in
+> [Anthropic's Help Center](https://support.anthropic.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan).
 >
-> Keep this provider for **local solo development only**. For any
-> deployed / shared instance, use `LLM_PROVIDER=api` with an API key
-> billed to you or your organisation.
+> Subscription routing is for **local solo development only**. Any
+> deployed / shared instance must use Setup A (API key).
 
-When set, `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` are forwarded
-into the container so the bundled CLI can talk to a service on the
-host (`http://host.docker.internal:<port>`) — useful for SSH tunnels or
-local routers.
+### Setup C — Corporate / internal gateway with OAuth M2M
+
+Some internal gateways require an additional machine-to-machine OAuth
+client-credentials flow on top of the API key:
+
+```env
+LLM_API_BASE_URL=https://your-gateway.example.com/v1
+LLM_API_KEY=<gateway-api-key>
+LLM_AUTH_TOKEN_URL=https://your-iam.example.com/.../access_token
+LLM_AUTH_CLIENT_ID=<client-id>
+LLM_AUTH_CLIENT_SECRET=<client-secret>
+LLM_AUTH_SCOPE=<scope>
+```
+
+When `LLM_AUTH_TOKEN_URL` is set, the app exchanges client_id +
+client_secret for a bearer token before each call (cached, refreshed
+~30 s before expiry). Leave the block empty for Setup A / Setup B.
 
 ## Implementation
 
 The chat backend lives under `app/server/llm/`:
-`config.mjs` → `oauth.mjs` (M2M token cache) → `provider-api.mjs` /
-`provider-cli.mjs` → `index.mjs` (selector). Mocked-fetch tests:
+`config.mjs` → `oauth.mjs` (M2M token cache) → `provider-api.mjs` →
+`index.mjs`. Mocked-fetch tests:
 `node --test app/server/llm/*.test.mjs`.
 
 ## RAG retrieval
@@ -114,10 +146,8 @@ The container runs as your host user (`--user $(id -u):$(id -g)`), so
 any files it writes into the bind-mounts stay host-owned.
 
 Mounts: `./data` → `/data` (report, read-only), `./app/db` → `/db`
-(flags persist here as `flags.json`), `~/.claude` →
-`/home/app/.claude` + `~/.claude.json` → `/home/app/.claude.json`
-(only used when `LLM_PROVIDER=cli`; `HOME=/home/app` inside the
-container).
+(flags persist here as `flags.json`). `HOME=/home/app` inside the
+container.
 
 The app reads `data/report.json` live on each request and renders it;
 the **Refresh** button re-reads it after you regenerate the report.

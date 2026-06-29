@@ -37,11 +37,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY app/package.json app/package-lock.json ./
 RUN npm ci --omit=dev
-# Install the `claude` CLI globally so LLM_PROVIDER=cli works inside the
-# container. The CLI reads ~/.claude/.credentials.json — which run.sh
-# bind-mounts to /home/app/.claude — to authenticate. See README for the
-# LICENSING CAUTION before using this provider on a shared/hosted app.
-RUN npm install -g @anthropic-ai/claude-code
 COPY app/server ./server
 COPY --from=build /app/dist ./dist
 COPY --from=ca /tmp/extra-ca-bundle.pem /etc/ssl/certs/extra-ca-bundle.pem
