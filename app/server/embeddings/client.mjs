@@ -10,13 +10,14 @@ export function createEmbeddingsClient({ getConfig, oauth, fetchImpl = fetch }) 
     if (!inputs.length) return [];
     const cfg = getConfig();
     const token = await oauth.getAccessToken();
+    const headers = {
+      "x-apikey": cfg.apiKey,
+      "Content-Type": "application/json",
+    };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetchImpl(`${cfg.apiBaseUrl}/embeddings`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "x-apikey": cfg.apiKey,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({ model: cfg.model, input: inputs }),
     });
     if (!res.ok) {

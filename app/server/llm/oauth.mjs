@@ -3,6 +3,10 @@
 // Holds one (token, expiresAt) per instance. Refreshes 30s before
 // expiry. Concurrent callers during a refresh share the in-flight
 // promise so we don't hammer the auth endpoint.
+//
+// When tokenUrl is empty the upstream doesn't need OAuth on top of the
+// API key (Anthropic direct, OpenAI direct). getAccessToken returns ""
+// and the chat/embedding client just sends the API key in x-apikey.
 const EXPIRY_BUFFER_MS = 30_000;
 
 export function createOAuthClient({
@@ -13,6 +17,9 @@ export function createOAuthClient({
   fetchImpl = fetch,
   now = () => Date.now(),
 }) {
+  if (!tokenUrl || tokenUrl.trim() === "") {
+    return { getAccessToken: async () => "" };
+  }
   let cached = null;
   let inFlight = null;
 
