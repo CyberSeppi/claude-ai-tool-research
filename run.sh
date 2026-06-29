@@ -71,19 +71,16 @@ if [ -f "$ROOT/.env" ]; then ENV_ARGS+=(--env-file "$ROOT/.env"); fi
 # host first to make sure the bind has something to bind to.
 [ -e "$HOME/.claude.json" ] || touch "$HOME/.claude.json"
 
-# If the host has set ANTHROPIC_BASE_URL (e.g. pointing at a local Claude
-# Code router, an SSH tunnel, or a corporate gateway), forward that into
-# the container with a host.docker.internal hop so `claude` CLI inside
-# the container can reach a service running on the host.
+# LLM_PROVIDER=cli — forward the three official Anthropic SDK env vars
+# when set. The app reads them from .env (via --env-file above), but we
+# also forward whatever's in the user's shell so they can override per
+# invocation without editing .env.
 #
-# This is generic: we pass through whatever env you set, we do NOT hard-
-# code any specific router product or URL. Set ANTHROPIC_BASE_URL +
-# (optionally) ANTHROPIC_AUTH_TOKEN in your shell or .env if you need it.
-CLI_ARGS=()
-if [ -n "${ANTHROPIC_BASE_URL:-}" ]; then
-  CLI_ARGS+=(--add-host=host.docker.internal:host-gateway)
-  CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}")
-fi
+# Always add host.docker.internal so the user can point ANTHROPIC_BASE_URL
+# at a host-side service (router/proxy/SSH tunnel). Cheap, no side effect
+# when unused.
+CLI_ARGS=(--add-host=host.docker.internal:host-gateway)
+[ -n "${ANTHROPIC_BASE_URL:-}" ]   && CLI_ARGS+=(-e "ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}")
 [ -n "${ANTHROPIC_AUTH_TOKEN:-}" ] && CLI_ARGS+=(-e "ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}")
 [ -n "${ANTHROPIC_API_KEY:-}" ]    && CLI_ARGS+=(-e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}")
 

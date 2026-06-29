@@ -44,7 +44,7 @@ test("createLlmClient: cli provider does not require API secrets", () => {
     cli: () => ({ chat: async () => "cli-ok" }),
   };
   const client = createLlmClient({
-    env: { LLM_PROVIDER: "cli" },
+    env: { LLM_PROVIDER: "cli", ANTHROPIC_API_KEY: "k" },
     providerFactories: factories,
   });
   assert.equal(client.getConfig().provider, "cli");

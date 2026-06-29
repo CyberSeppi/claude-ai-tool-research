@@ -48,9 +48,15 @@ All knobs are documented in `.env.example`.
 
 ### Provider: `cli` (local development only)
 
-Wraps the local `claude` CLI through `@anthropic-ai/claude-agent-sdk`.
-The CLI authenticates with whatever you have configured in your local
-`~/.claude/` directory (mounted into the container).
+Wraps the bundled `claude` CLI through `@anthropic-ai/claude-agent-sdk`.
+Three auth modes are supported — pick one in `.env`; the app refuses to
+start if none of them resolve:
+
+| Mode | `.env` settings | Notes |
+|---|---|---|
+| **A — Anthropic API key** | `ANTHROPIC_API_KEY=sk-ant-…` | Simplest. Talks directly to `api.anthropic.com`. Billed per-token. |
+| **B — Local Anthropic-compat router** | `ANTHROPIC_BASE_URL=http://host.docker.internal:<port>`, `ANTHROPIC_AUTH_TOKEN=<router-token>` | For CCR, litellm, claude-bridge, etc. running on the host. `run.sh` adds `--add-host=host.docker.internal:host-gateway` automatically. |
+| **C — Mounted Pro/Max OAuth session** | (no env vars) | Run `claude /login` on the host first. `run.sh` bind-mounts `~/.claude/` + `~/.claude.json` so the in-container CLI inherits the Pro/Max session. |
 
 > [!CAUTION]
 > **Using `LLM_PROVIDER=cli` in a publicly-deployed or shared application
