@@ -17,9 +17,22 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
+# Load .env early so EXTRA_CA_BUNDLE_URL (and ANTHROPIC_* etc.) are
+# available below — set -a / +a auto-exports all loaded vars.
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+  set +a
+fi
+
 if [ "${1:-}" = "--build" ]; then
   echo "Building image $IMAGE…"
-  docker build -t "$IMAGE" -f "$ROOT/app/Dockerfile" "$ROOT"
+  BUILD_ARGS=()
+  if [ -n "${EXTRA_CA_BUNDLE_URL:-}" ]; then
+    BUILD_ARGS+=(--build-arg "EXTRA_CA_BUNDLE_URL=${EXTRA_CA_BUNDLE_URL}")
+  fi
+  docker build "${BUILD_ARGS[@]}" -t "$IMAGE" -f "$ROOT/app/Dockerfile" "$ROOT"
 elif ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   echo "Image '$IMAGE' not found — run: ./run.sh --build" >&2
   exit 1
