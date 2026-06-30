@@ -8,11 +8,16 @@ import { fetchReadme as defaultFetchReadme, splitMarkdown as defaultSplitMd } fr
 const sha256 = (s) => createHash("sha256").update(s, "utf8").digest("hex");
 
 function repoSlugFromRecord(rec) {
-  const m = String(rec.url || rec.name || "")
+  // Prefer the explicit repo_url; fall back to url only when it
+  // points at github. Pure-homepage records (Obsidian etc.) get null
+  // and the caller skips the README-fetch path entirely — only the
+  // fields-chunk goes in.
+  const source = (rec.repo_url && String(rec.repo_url).trim()) || rec.url || "";
+  const m = String(source)
     .toLowerCase()
     .match(/github\.com\/([^/]+)\/([^/#?]+)/);
   if (m) return `${m[1]}/${m[2].replace(/\.git$/, "")}`;
-  return rec.name?.toLowerCase().trim() || null;
+  return null;
 }
 
 export async function runBackfill({

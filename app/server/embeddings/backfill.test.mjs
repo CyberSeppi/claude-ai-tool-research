@@ -179,3 +179,75 @@ test("empty records array → zero work, zero failures", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("backfill: non-github record (no repo_url) embeds only the fields chunk", async () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    let fetchCalls = 0;
+    const result = await runBackfill({
+      records: [
+        {
+          ...RECORD,
+          id: "obsidian",
+          name: "Obsidian",
+          url: "https://obsidian.md",
+          repo_url: null,
+        },
+      ],
+      client: makeClient(),
+      store,
+      config: { ...CFG, githubToken: "ghp" },
+      fetchReadmeFn: async () => {
+        fetchCalls++;
+        return "# Should not be called";
+      },
+      log: QUIET_LOG,
+    });
+    assert.equal(result.embedded, 1, "only the fields chunk");
+    assert.equal(fetchCalls, 0, "no README fetch when neither repo_url nor github url");
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("backfill: record with repo_url uses it for the README fetch", async () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    let lastSlug = null;
+    const result = await runBackfill({
+      records: [
+        {
+          ...RECORD,
+          id: "obsidian",
+          name: "Obsidian",
+          url: "https://obsidian.md",
+          repo_url: "https://github.com/obsidianmd/obsidian-releases",
+        },
+      ],
+      client: makeClient(),
+      store,
+      config: { ...CFG, githubToken: "ghp" },
+      fetchReadmeFn: async ({ repoSlug }) => {
+        lastSlug = repoSlug;
+        return "# Title\n\nbody";
+      },
+      log: QUIET_LOG,
+    });
+    assert.equal(lastSlug, "obsidianmd/obsidian-releases");
+    assert.ok(result.embedded >= 2, "fields + readme chunks");
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
