@@ -1,3 +1,7 @@
+// Render the record name as a markdown link so the LLM's response
+// (which is run through the Markdown renderer in the frontend) carries
+// a clickable name straight to the homepage / repo. Without this the
+// model tends to quote the bare repo string and the user gets text only.
 function recordDetail(r) {
   const meta = [
     `${r.stars_display ?? "?"} stars`,
@@ -6,16 +10,17 @@ function recordDetail(r) {
   ]
     .filter(Boolean)
     .join(" · ");
+  const nameLink = r.url ? `[${r.name}](${r.url})` : r.name;
   return [
-    `### ${r.name} (${r.category}) — ${meta}`,
-    `URL: ${r.url}`,
+    `### ${nameLink} (${r.category}) — ${meta}`,
     `What it does: ${r.description}`,
     `Efficiency gain: ${r.efficiency_gain}`,
   ].join("\n");
 }
 
 function recordLine(r) {
-  return `- ${r.name} [${r.category}, ${r.stars_display ?? "?"}★${r.version ? `, ${r.version}` : ""}]: ${r.description}`;
+  const nameLink = r.url ? `[${r.name}](${r.url})` : r.name;
+  return `- ${nameLink} [${r.category}, ${r.stars_display ?? "?"}★${r.version ? `, ${r.version}` : ""}]: ${r.description}`;
 }
 
 const SYSTEM =
