@@ -1,6 +1,7 @@
 import type { Rec } from "./types";
 import { ChatBox } from "./ChatBox";
 import { useResizable } from "./useResizable";
+import { GithubIcon, GlobeIcon, isGithubUrl } from "./icons";
 
 export function DetailPanel({ record, onFlag, onClose }: {
   record: Rec; onFlag: (id: string, interesting: boolean) => void; onClose: () => void;
@@ -16,11 +17,13 @@ export function DetailPanel({ record, onFlag, onClose }: {
       />
       <div className="flex justify-between items-start">
         <a
-          className="font-mono text-base font-medium text-accent underline-offset-2 hover:underline truncate"
+          className="inline-flex items-center gap-1.5 font-mono text-base font-medium text-accent underline-offset-2 hover:underline truncate"
           href={record.url}
           target="_blank"
           rel="noreferrer"
+          title={isGithubUrl(record.url) ? "GitHub repo" : "Homepage"}
         >
+          {isGithubUrl(record.url) ? <GithubIcon size={16} /> : <GlobeIcon size={16} />}
           {record.name}
         </a>
         <button
@@ -49,6 +52,19 @@ export function DetailPanel({ record, onFlag, onClose }: {
           </>
         )}
       </div>
+
+      {record.repo_url && record.repo_url !== record.url && (
+        <a
+          href={record.repo_url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] text-muted hover:text-accent underline-offset-2 hover:underline"
+          title="GitHub repo"
+        >
+          <GithubIcon size={12} />
+          ↗ Repo: {record.repo_url.replace(/^https:\/\/github\.com\//, "")}
+        </a>
+      )}
 
       <p className="mt-4 text-sm text-primary leading-relaxed">{record.description}</p>
 
