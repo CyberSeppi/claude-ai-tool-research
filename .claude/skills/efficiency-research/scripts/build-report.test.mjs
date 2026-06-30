@@ -104,3 +104,63 @@ test("renderMarkdown groups by category with version + contributors columns", ()
   assert.match(md, /v1\.2\.3/);
   assert.match(md, /\| 42 \|/);
 });
+
+test("buildReport: accepts companion-app as a category", () => {
+  const rep = buildReport(
+    [
+      {
+        name: "Obsidian",
+        url: "https://obsidian.md",
+        repo_url: "https://github.com/obsidianmd/obsidian-releases",
+        category: "companion-app",
+        description: "PKM",
+        efficiency_gain: "external memory",
+        sources: [],
+        confidence: "high",
+        use_cases: ["knowledge-tool"],
+      },
+    ],
+    { generatedAt: "t", date: "2026-06-30" },
+  );
+  assert.equal(rep.records.length, 1);
+  assert.equal(rep.records[0].category, "companion-app");
+  assert.equal(rep.records[0].repo_url, "https://github.com/obsidianmd/obsidian-releases");
+});
+
+test("buildReport: fallback — github url + no repo_url → repo_url = url", () => {
+  const rep = buildReport(
+    [
+      {
+        name: "acme/x",
+        url: "https://github.com/acme/x",
+        category: "plugin-skill",
+        description: "d",
+        efficiency_gain: "e",
+        sources: [],
+        confidence: "high",
+        use_cases: ["dev"],
+      },
+    ],
+    { generatedAt: "t", date: "2026-06-30" },
+  );
+  assert.equal(rep.records[0].repo_url, "https://github.com/acme/x");
+});
+
+test("buildReport: non-github url + no repo_url → repo_url stays null", () => {
+  const rep = buildReport(
+    [
+      {
+        name: "Obsidian",
+        url: "https://obsidian.md",
+        category: "companion-app",
+        description: "PKM",
+        efficiency_gain: "e",
+        sources: [],
+        confidence: "high",
+        use_cases: ["knowledge-tool"],
+      },
+    ],
+    { generatedAt: "t", date: "2026-06-30" },
+  );
+  assert.equal(rep.records[0].repo_url, null);
+});

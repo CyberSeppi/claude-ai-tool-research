@@ -4,12 +4,26 @@ import { slugOf } from "./scan-installed.mjs";
 
 const norm = (s) => String(s).toLowerCase().replace(/\.git$/, "").trim();
 
-const CATEGORIES = ["plugin-skill", "mcp-server", "token-tool"];
+const CATEGORIES = ["plugin-skill", "mcp-server", "token-tool", "companion-app"];
 const CATEGORY_TITLES = {
   "plugin-skill": "Plugins & Skills",
   "mcp-server": "MCP Servers",
   "token-tool": "Token & Research Tools",
+  "companion-app": "Companion Apps",
 };
+
+// Match the homepage form `https://github.com/owner/repo` (extra path,
+// query, fragment allowed). When raw-records.json omits repo_url for a
+// pure-github entry, we mirror url → repo_url so the augment + RAG
+// pipelines keep working on the original 143 records without an
+// explicit migration.
+const GITHUB_RE = /^https:\/\/github\.com\/[^/]+\/[^/?#]+/i;
+
+function resolveRepoUrl(r) {
+  if (typeof r.repo_url === "string" && r.repo_url.trim() !== "") return r.repo_url;
+  if (typeof r.url === "string" && GITHUB_RE.test(r.url)) return r.url;
+  return null;
+}
 
 export function idOf(record) {
   const base = (record.url && slugOf(record.url)) || record.name || "";
@@ -28,6 +42,7 @@ export function buildReport(rawRecords, { generatedAt, date, query = "" }) {
       id,
       name: r.name,
       url: r.url,
+      repo_url: resolveRepoUrl(r),
       category: r.category,
       stars: r.stars ?? null,
       stars_display: r.stars_display ?? null,
