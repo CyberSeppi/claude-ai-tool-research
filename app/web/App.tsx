@@ -49,6 +49,11 @@ export function App() {
     [records]
   );
 
+  const categoryOptions = useMemo(
+    () => [...new Set(records.map((r) => r.category).filter(Boolean))].sort(),
+    [records]
+  );
+
   const data = useMemo(
     () => records.filter((r) =>
       (category ? r.category === category : true) &&
@@ -95,9 +100,9 @@ export function App() {
           className="rounded bg-raised border border-edge px-2 py-1.5 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
         >
           <option value="">All categories</option>
-          <option value="plugin-skill">plugin-skill</option>
-          <option value="mcp-server">mcp-server</option>
-          <option value="token-tool">token-tool</option>
+          {categoryOptions.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
         <select
           value={useCase}
