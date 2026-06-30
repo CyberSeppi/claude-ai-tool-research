@@ -142,13 +142,30 @@ async function fetchContributors(slug) {
 async function augmentOne(rec) {
   const slug = slugOf(rec);
   if (!slug) return rec;
-  if (!force && rec.version != null && rec.contributors != null) return rec;
+  // Skip the network round-trip when everything is already populated
+  // and --force is not set.
+  const allFilled = rec.stars != null && rec.version != null && rec.contributors != null;
+  if (!force && allFilled) return rec;
 
-  const [version, contributors] = await Promise.all([
+  const [version, contributors, starsResult] = await Promise.all([
     rec.version == null || force ? fetchVersion(slug) : Promise.resolve(rec.version),
     rec.contributors == null || force ? fetchContributors(slug) : Promise.resolve(rec.contributors),
+    rec.stars == null || force ? fetchStars(slug) : Promise.resolve(null),
   ]);
-  return { ...rec, version: version ?? rec.version ?? null, contributors: contributors ?? rec.contributors ?? null };
+
+  // starsResult is { stars, stars_display } when freshly fetched, null
+  // when skipped (or when the fetch failed). Keep the existing values
+  // whenever the augment didn't return new ones.
+  const stars = starsResult?.stars ?? rec.stars ?? null;
+  const stars_display = starsResult?.stars_display ?? rec.stars_display ?? null;
+
+  return {
+    ...rec,
+    stars,
+    stars_display,
+    version: version ?? rec.version ?? null,
+    contributors: contributors ?? rec.contributors ?? null,
+  };
 }
 
 // Simple pool — GitHub allows 5000 req/h with PAT, but we keep concurrency
@@ -187,11 +204,13 @@ const augmented = await pool(records, async (rec) => {
 
 const stats = {
   total: augmented.length,
+  with_stars: augmented.filter((r) => r.stars != null).length,
   with_version: augmented.filter((r) => r.version).length,
   with_contributors: augmented.filter((r) => r.contributors != null).length,
 };
 
 await writeFile(path, JSON.stringify(augmented, null, 2) + "\n");
 console.log(`[augment] wrote ${path}`);
+console.log(`[augment] ${stats.with_stars}/${stats.total} have stars`);
 console.log(`[augment] ${stats.with_version}/${stats.total} have version`);
 console.log(`[augment] ${stats.with_contributors}/${stats.total} have contributor count`);
