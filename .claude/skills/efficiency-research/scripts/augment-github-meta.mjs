@@ -63,6 +63,37 @@ function slugOf(rec) {
   return null;
 }
 
+// Format an integer star count as a short display string consistent
+// with what the LLM discover phase produces:
+//   <1000        → "850"
+//   1000–9999    → "6.7k"
+//   10000–       → "~58k"
+function formatStars(n) {
+  if (n == null) return null;
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  return `~${Math.round(n / 1000)}k`;
+}
+
+// Fetch stargazers_count + (incidentally) other repo metadata via
+// /repos/{owner}/{repo}. Returns { stars, stars_display } or null on
+// any failure. Star count drifts; we treat the augment pass as the
+// authoritative source.
+async function fetchStars(slug) {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${slug}`, {
+      headers: HEADERS,
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const n = Number.isFinite(j.stargazers_count) ? j.stargazers_count : null;
+    if (n == null) return null;
+    return { stars: n, stars_display: formatStars(n) };
+  } catch {
+    return null;
+  }
+}
+
 // Fetch the latest release tag. Falls back to the most-recent tag if no
 // release object exists. Returns null on any failure.
 async function fetchVersion(slug) {
