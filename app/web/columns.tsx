@@ -56,6 +56,15 @@ export const columns: ColumnDef<Rec>[] = [
           rel="noreferrer"
           title={isGithubUrl(r.url) ? "GitHub repo" : "Homepage"}
         >
+          {r.curated && (
+            <span
+              className="text-accent-bright"
+              title="Curated — added via 'Add Tool'"
+              aria-label="Curated record"
+            >
+              ★
+            </span>
+          )}
           <Icon />
           {info.getValue() as string}
         </a>
