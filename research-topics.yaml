@@ -2,7 +2,7 @@
 # Edit freely. weight: 1 (minor) .. 5 (must-have) — higher weight = research deeper
 # and rank/prioritise its hits more strongly in the report.
 #
-# category must be one of: plugin-skill | mcp-server | token-tool
+# category must be one of: plugin-skill | mcp-server | token-tool | companion-app
 
 topics:
   - topic: "Claude Code plugins, skill packs, subagent collections, plugin marketplaces"
@@ -47,4 +47,20 @@ topics:
 
   - topic: "Embedding & retrieval libraries / skills / token-efficient context-grounding tools (cuts hallucinations by injecting only the relevant chunks)"
     category: token-tool
+    weight: 4
+
+  - topic: "Free PKM / Markdown-notes apps with AI/RAG plugin ecosystem (Obsidian, Logseq, Anytype, AppFlowy)"
+    category: companion-app
+    weight: 4
+
+  - topic: "Free local-LLM-runner desktop apps including mini-LLMs for local micro-tasks (LM Studio, Jan.ai, Ollama desktop, GPT4All, AnythingLLM)"
+    category: companion-app
+    weight: 4
+
+  - topic: "Free AI-aware code editors / standalone IDEs (Cursor free tier, Zed AI, Windsurf, Continue.dev standalone)"
+    category: companion-app
+    weight: 4
+
+  - topic: "Free AI dev-tools — VS Code / JetBrains / IDE AI plugins (Continue, Cline, Codeium free tier, Aider, Tabnine free, ProxyAI)"
+    category: companion-app
     weight: 4
