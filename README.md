@@ -21,13 +21,62 @@ Two parts:
 - Implementation plan (skill): `docs/superpowers/plans/2026-06-29-efficiency-research-skill.md`
 - Implementation plan (chat + RAG): `docs/superpowers/plans/2026-06-29-chat-rag-implementation.md`
 
-## Run the research skill
+## Research pipeline
+
+The data the app shows is produced in three phases:
+
+```
+research-topics.yaml ─┐
+                      │
+              ┌───────▼────────┐
+   PHASE 1 →  │  RESEARCH      │  Claude — fans out subagents, finds
+              │  (LLM-driven)  │  repos, verifies stars, classifies
+              └───────┬────────┘  use_cases. Cost: ~1M tokens / 5–15 min.
+                      │
+                      ▼
+              data/raw-records.json
+                      │
+              ┌───────▼────────┐
+   PHASE 2 →  │  AUGMENT       │  Pure HTTP — fetches version + exact
+              │  (no LLM)      │  contributor count for every record.
+              └───────┬────────┘  GitHub PAT, ~30 s.
+                      │
+                      ▼
+           data/raw-records.json  ← same file, two new fields per record
+                      │
+              ┌───────▼────────┐
+   PHASE 3 →  │  BUILD         │  Validates schema, dedupes by id,
+              │  (no LLM)      │  groups for Markdown, writes the
+              └───────┬────────┘  contract files. Instant.
+                      │
+                      ▼
+            data/report.json (app reads this)
+            data/report.md   (human-readable)
+```
+
+Commands (run from the repo root):
 
 ```bash
-npm install                 # one-time
-npm run test:skill          # helper-script tests
-npm run research:build      # rebuild report.json + report.md from data/raw-records.json
+npm install              # one-time
+
+# PHASE 1 — research (via the Claude CLI Workflow tool, NOT npm).
+# Invoke the workflow script in your Claude session:
+#   Workflow({ scriptPath: ".claude/skills/efficiency-research/pipeline/research-pipeline.js" })
+# Or run the RAG-focused variant for the RAG topics only:
+#   Workflow({ scriptPath: ".claude/skills/efficiency-research/pipeline/rag-pipeline.js" })
+
+# PHASE 2 — augment (GitHub REST API, no LLM):
+npm run report:augment   # add version + contributors to every record
+
+# PHASE 3 — build (deterministic):
+npm run report:build     # data/raw-records.json → data/report.{json,md}
+
+# Tests for the helper scripts:
+npm run test:skill
 ```
+
+Each phase is idempotent: re-running augment skips records already
+populated (`--force` to re-fetch), and build is purely deterministic.
 
 ## Chat backend
 

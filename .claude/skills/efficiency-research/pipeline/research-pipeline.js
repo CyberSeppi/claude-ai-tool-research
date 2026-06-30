@@ -2,7 +2,8 @@
 //
 // Run from the repository root with the Workflow tool:
 //   Workflow({ scriptPath: ".claude/skills/efficiency-research/pipeline/research-pipeline.js" })
-// then:  npm run research:build   (scans installs, dedupes, validates, writes report.json/report.md)
+// then:  npm run report:augment    (GitHub REST: fills in version + contributors)
+//        npm run report:build      (dedupes, validates, writes report.json/report.md)
 //
 // It is driven by research-topics.yaml (the control surface) and writes data/raw-records.json.
 // Paths are relative to the repo root (the project cwd the workflow agents run in).

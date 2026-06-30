@@ -6,7 +6,8 @@
 //
 // Run from repo root:
 //   Workflow({ scriptPath: ".claude/skills/efficiency-research/pipeline/rag-pipeline.js" })
-// then:  npm run research:build
+// then:  npm run report:augment
+//        npm run report:build
 
 export const meta = {
   name: 'rag-research-pipeline',

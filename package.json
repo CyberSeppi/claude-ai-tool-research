@@ -7,6 +7,7 @@
   "description": "Claude efficiency research skill (.claude/skills/efficiency-research). Web app lives in app/.",
   "scripts": {
     "test:skill": "node --test .claude/skills/efficiency-research/scripts/*.test.mjs",
-    "research:build": "node .claude/skills/efficiency-research/scripts/build-report.mjs"
+    "report:build": "node .claude/skills/efficiency-research/scripts/build-report.mjs",
+    "report:augment": "node .claude/skills/efficiency-research/scripts/augment-github-meta.mjs"
   }
 }
