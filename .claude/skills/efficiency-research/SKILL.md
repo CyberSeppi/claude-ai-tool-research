@@ -113,3 +113,12 @@ Runs `scripts/build-report.mjs` which:
 - Helper-script tests: `npm run test:skill`.
 - The container the app runs in reads `data/report.json` live on every
   request — no rebuild needed.
+
+## Note on user-curated entries
+
+The app's UI has its own "+ Add Tool" mechanism for entries the
+crawler misses. Those records live in `app/db/seeds.json` and are
+merged in-memory by the backend on every API request. They do not
+appear in `data/raw-records.json` — the workflow's view of the world
+is unchanged. See `docs/superpowers/specs/2026-06-30-user-curated-seeds-design.md`
+for the design.

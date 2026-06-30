@@ -78,6 +78,28 @@ npm run test:skill
 Each phase is idempotent: re-running augment skips records already
 populated (`--force` to re-fetch), and build is purely deterministic.
 
+## Curating tools by hand
+
+Some tools the research crawler reliably misses (homepage-only apps,
+niche-but-high-star single-skill repos, anything post-cutoff that
+isn't yet indexed by search). For those, the app has an in-UI
+**+ Add Tool** button:
+
+1. Paste the tool's URL (GitHub repo URL or homepage), optionally a name.
+2. Click **Fetch**. The backend hits the GitHub REST API for github
+   URLs, or fetches the homepage + runs an LLM extraction otherwise.
+3. Edit the auto-filled fields, click **Save**.
+4. The record appears immediately, tagged ⭐ in the Name column.
+
+Curated records survive every workflow re-run — they live in
+`app/db/seeds.json` (db volume, not in git). Open the side-panel of
+a curated record to delete it. Editing is currently delete + re-add.
+
+The slug-collision rule: if the workflow later discovers a tool you
+already curated, the two records are merged into one row that shows
+your curated fields with the GitHub-derived stars/version/contributors
+on top. The ⭐ badge stays.
+
 ## Chat backend
 
 One provider: a direct REST call to an OpenAI-compatible
