@@ -95,7 +95,11 @@ const found = (await parallel(topics.map((t, i) => () =>
     `Find the best, coolest, most-efficient GitHub repositories for this that boost Claude Code efficiency for software development and brainstorming. Return ${(t.weight ?? 3) >= 4 ? '10-15' : '5-8'} repos.\n` +
     `For EACH: WebFetch its GitHub page to VERIFY it exists and read the REAL current star count; set stars (integer) + stars_display (e.g. "~58k", "6.7k", "n/a"). Choose category from ${CATS}. Write a concise one-sentence description and a one-line efficiency_gain. sources = the URLs you used. confidence reflects certainty. use_cases = a NON-EMPTY array of 1+ tags from: ${USE_CASES}.\n` +
     `Only include REAL, existing repos. For pure-GitHub tools: name = owner/repo, url = the https GitHub URL, repo_url = same as url (or leave null and the build step will fall back).\n` +
-    `For companion-app entries (free tools that aren't primarily a GitHub repo — Obsidian, LM Studio, Cursor, …): name = product name, url = canonical homepage (obsidian.md, lmstudio.ai, …); optionally fill repo_url if a meaningful GitHub presence exists (releases repo, plugin-list repo). Only include tools whose homepage EXPLICITLY offers a free tier or open-source licence — drop paid-only tools.`,
+    `For companion-app entries (tools that aren't primarily a GitHub repo — Obsidian, LM Studio, …): name = product name, url = canonical homepage (obsidian.md, lmstudio.ai, …); optionally fill repo_url if a meaningful GitHub presence exists (releases repo, plugin-list repo).\n` +
+    `STRICT free-cost gate (applies to ALL categories, but especially companion-app): only include tools that are EITHER\n` +
+    `  (a) open-source under an OSI-approved licence (MIT, Apache, GPL, MPL, BSD, …), OR\n` +
+    `  (b) unconditionally free for personal use with no completion/token/seat quota (e.g. Obsidian, LM Studio, Jan.ai).\n` +
+    `DROP "freemium" tools that gate AI features behind a paid tier or a monthly request quota — Cursor (2000 completions/month), Tabnine free, Codeium free, GitHub Copilot, JetBrains AI Assistant, Windsurf paid tier, etc. all FAIL the gate even though their marketing page calls them "free". When in doubt, drop.`,
     { label: `discover:${i}`, phase: 'Discover', schema: RECORD_SCHEMA, model: 'sonnet', agentType: 'general-purpose' }
   )
 ))).filter(Boolean).flatMap((x) => x.records || [])
