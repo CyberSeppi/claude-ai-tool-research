@@ -223,3 +223,45 @@ test("count returns 0 for empty store", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("listRecordIds + deleteRecords: removes all chunks for given ids", () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    store.upsertChunks([
+      { recordId: "keep", chunkIndex: 0, source: "fields", headingPath: null, text: "k", textHash: "h1", vector: unitVec(4, 1) },
+      { recordId: "drop", chunkIndex: 0, source: "fields", headingPath: null, text: "d", textHash: "h2", vector: unitVec(4, 2) },
+      { recordId: "drop", chunkIndex: 1, source: "readme", headingPath: "drop: h", text: "d2", textHash: "h3", vector: unitVec(4, 3) },
+    ]);
+    assert.deepEqual(store.listRecordIds().sort(), ["drop", "keep"]);
+    const removed = store.deleteRecords(["drop", "nonexistent"]);
+    assert.equal(removed, 2, "two chunks deleted for 'drop'");
+    assert.deepEqual(store.listRecordIds(), ["keep"]);
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("deleteRecords: empty input is a no-op", () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    store.upsertChunks([
+      { recordId: "r1", chunkIndex: 0, source: "fields", headingPath: null, text: "t", textHash: "h", vector: unitVec(4, 1) },
+    ]);
+    assert.equal(store.deleteRecords([]), 0);
+    assert.equal(store.count(), 1);
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

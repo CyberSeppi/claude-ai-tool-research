@@ -78,6 +78,14 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
     count: db.prepare(
       `SELECT COUNT(*) AS c FROM embedded_chunks WHERE model = ? AND prompt_version = ?`,
     ),
+    distinctRecordIds: db.prepare(
+      `SELECT DISTINCT record_id FROM embedded_chunks
+       WHERE model = ? AND prompt_version = ?`,
+    ),
+    deleteByRecord: db.prepare(
+      `DELETE FROM embedded_chunks
+       WHERE record_id = ? AND model = ? AND prompt_version = ?`,
+    ),
   };
 
   function upsertChunks(rows) {
@@ -120,6 +128,26 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
     return stmts.count.get(model, promptVersion).c;
   }
 
+  function listRecordIds() {
+    return stmts.distinctRecordIds.all(model, promptVersion).map((r) => r.record_id);
+  }
+
+  // Drop all chunks for the given record_ids (scoped to this store's
+  // (model, prompt_version) namespace). Wrapped in a transaction so a
+  // bulk delete from the boot-time prune is atomic.
+  function deleteRecords(recordIds) {
+    if (!recordIds.length) return 0;
+    const tx = db.transaction((ids) => {
+      let n = 0;
+      for (const id of ids) {
+        const r = stmts.deleteByRecord.run(id, model, promptVersion);
+        n += r.changes;
+      }
+      return n;
+    });
+    return tx(recordIds);
+  }
+
   function cosineTopK(query, k, minScore) {
     const rows = allChunks();
     const scored = [];
@@ -151,6 +179,8 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
     allChunks,
     count,
     cosineTopK,
+    listRecordIds,
+    deleteRecords,
     close: () => db.close(),
   };
 }
