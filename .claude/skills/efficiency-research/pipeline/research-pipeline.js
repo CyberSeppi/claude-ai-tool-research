@@ -19,7 +19,7 @@ export const meta = {
   ],
 }
 
-const CATS = 'plugin-skill | mcp-server | token-tool'
+const CATS = 'plugin-skill | mcp-server | token-tool | companion-app'
 const USE_CASES =
   'research, development, token-efficiency, brainstorming, automation, docs, debugging, ui-design ' +
   '(reuse these consistently; you MAY mint a new concise lowercase-hyphen tag if none fits)'
@@ -32,9 +32,10 @@ const RECORD_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'owner/repo' },
-          url: { type: 'string' },
-          category: { type: 'string', enum: ['plugin-skill', 'mcp-server', 'token-tool'] },
+          name: { type: 'string', description: 'owner/repo for github tools, or product name for companion-app tools' },
+          url: { type: 'string', description: 'canonical homepage' },
+          repo_url: { type: ['string', 'null'], description: 'GitHub repo url when distinct from the homepage; null for pure homepage records (build-time falls back to url when url IS github)' },
+          category: { type: 'string', enum: ['plugin-skill', 'mcp-server', 'token-tool', 'companion-app'] },
           stars: { type: ['integer', 'null'] },
           stars_display: { type: 'string' },
           description: { type: 'string' },
@@ -93,7 +94,8 @@ const found = (await parallel(topics.map((t, i) => () =>
     `Research angle: "${t.topic}" (suggested category: ${t.category || 'any of ' + CATS}, weight ${t.weight ?? 3}/5).\n` +
     `Find the best, coolest, most-efficient GitHub repositories for this that boost Claude Code efficiency for software development and brainstorming. Return ${(t.weight ?? 3) >= 4 ? '10-15' : '5-8'} repos.\n` +
     `For EACH: WebFetch its GitHub page to VERIFY it exists and read the REAL current star count; set stars (integer) + stars_display (e.g. "~58k", "6.7k", "n/a"). Choose category from ${CATS}. Write a concise one-sentence description and a one-line efficiency_gain. sources = the URLs you used. confidence reflects certainty. use_cases = a NON-EMPTY array of 1+ tags from: ${USE_CASES}.\n` +
-    `Only include REAL, existing repos. name = owner/repo, url = the https GitHub URL.`,
+    `Only include REAL, existing repos. For pure-GitHub tools: name = owner/repo, url = the https GitHub URL, repo_url = same as url (or leave null and the build step will fall back).\n` +
+    `For companion-app entries (free tools that aren't primarily a GitHub repo — Obsidian, LM Studio, Cursor, …): name = product name, url = canonical homepage (obsidian.md, lmstudio.ai, …); optionally fill repo_url if a meaningful GitHub presence exists (releases repo, plugin-list repo). Only include tools whose homepage EXPLICITLY offers a free tier or open-source licence — drop paid-only tools.`,
     { label: `discover:${i}`, phase: 'Discover', schema: RECORD_SCHEMA, model: 'sonnet', agentType: 'general-purpose' }
   )
 ))).filter(Boolean).flatMap((x) => x.records || [])
@@ -113,8 +115,11 @@ const chunks = []
 for (let i = 0; i < unique.length; i += CHUNK) chunks.push(unique.slice(i, i + CHUNK))
 const verified = (await parallel(chunks.map((batch, i) => () =>
   agent(
-    `Verify these candidate repos. For EACH: WebFetch its GitHub page; confirm it EXISTS (not 404/renamed); read the CURRENT star count and correct stars + stars_display; fix category only if clearly wrong (${CATS}); DROP any that do not exist or you cannot verify.\n` +
-    `KEEP every other field UNCHANGED — especially the use_cases array (do not alter, reorder, or drop it).\n` +
+    `Verify these candidate repos. For EACH:\n` +
+    `- If url is https://github.com/... → WebFetch the repo page; confirm it EXISTS (not 404/renamed); read the CURRENT star count and correct stars + stars_display.\n` +
+    `- If url is a non-github homepage (companion-app) → WebFetch the homepage and confirm: (1) product page is live, (2) free tier or open-source claim is EXPLICIT on the page, (3) claimed capability matches the description. Drop entries that are paywalled with no free tier.\n` +
+    `Fix category only if clearly wrong (${CATS}); DROP any that do not exist or you cannot verify.\n` +
+    `KEEP every other field UNCHANGED — especially the use_cases array and repo_url (do not alter, reorder, or drop them).\n` +
     `Return ONLY the surviving, corrected records.\n\nCANDIDATES:\n${JSON.stringify(batch)}`,
     { label: `verify:${i}`, phase: 'Verify', schema: RECORD_SCHEMA, model: 'sonnet', agentType: 'general-purpose' }
   )

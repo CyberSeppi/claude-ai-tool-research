@@ -18,7 +18,7 @@ export const meta = {
   ],
 }
 
-const CATS = 'plugin-skill | mcp-server | token-tool'
+const CATS = 'plugin-skill | mcp-server | token-tool | companion-app'
 const USE_CASES =
   'research, development, token-efficiency, brainstorming, automation, docs, debugging, ui-design, rag ' +
   '(reuse these consistently; you MAY mint a new concise lowercase-hyphen tag if none fits — e.g. `rag`, `embeddings`, `vector-db`, `memory`, `code-search`)'
@@ -31,9 +31,10 @@ const RECORD_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'owner/repo' },
-          url: { type: 'string' },
-          category: { type: 'string', enum: ['plugin-skill', 'mcp-server', 'token-tool'] },
+          name: { type: 'string', description: 'owner/repo for github tools, or product name for companion-app tools' },
+          url: { type: 'string', description: 'canonical homepage' },
+          repo_url: { type: ['string', 'null'], description: 'GitHub repo url when distinct from the homepage; null for pure homepage records' },
+          category: { type: 'string', enum: ['plugin-skill', 'mcp-server', 'token-tool', 'companion-app'] },
           stars: { type: ['integer', 'null'] },
           stars_display: { type: 'string' },
           description: { type: 'string' },
