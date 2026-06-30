@@ -9,7 +9,6 @@
     "test:skill": "node --test .claude/skills/efficiency-research/scripts/*.test.mjs",
     "report:build": "node .claude/skills/efficiency-research/scripts/build-report.mjs",
     "report:augment": "node .claude/skills/efficiency-research/scripts/augment-github-meta.mjs",
-    "report:recover": "node .claude/skills/efficiency-research/scripts/recover-from-journal.mjs",
-    "report:seed": "node .claude/skills/efficiency-research/scripts/merge-seeds.mjs"
+    "report:recover": "node .claude/skills/efficiency-research/scripts/recover-from-journal.mjs"
   }
 }
