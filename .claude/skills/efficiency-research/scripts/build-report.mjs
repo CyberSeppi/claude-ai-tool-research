@@ -1,6 +1,6 @@
 import { readFile as _readFile, writeFile as _writeFile, mkdir } from "node:fs/promises";
 import { join as _join } from "node:path";
-import { slugOf, repoName, scanInstalled } from "./scan-installed.mjs";
+import { slugOf } from "./scan-installed.mjs";
 
 const norm = (s) => String(s).toLowerCase().replace(/\.git$/, "").trim();
 
@@ -16,25 +16,7 @@ export function idOf(record) {
   return norm(base).replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-export function matchInstalled(record, scan) {
-  const name = repoName(record.url || record.name || "");
-  const slug = slugOf(record.url || "");
-  const byName = (arr) => arr.find((e) => norm(e.name) === name);
-  const plugin = byName(scan.plugins);
-  if (plugin) return { installed: true, installed_path: plugin.path, installed_via: `plugin:${plugin.marketplace}` };
-  const skill = byName(scan.skills);
-  if (skill) return { installed: true, installed_path: skill.path, installed_via: "skill" };
-  const mcp = byName(scan.mcpServers);
-  if (mcp) return { installed: true, installed_path: mcp.source, installed_via: "mcp" };
-  const marketplace = (scan.marketplaces ?? []).find(
-    (m) => norm(m.name) === name || (slug && m.repo && norm(m.repo) === slug),
-  );
-  if (marketplace) return { installed: true, installed_path: marketplace.path ?? null, installed_via: "marketplace" };
-  if (slug && scan.installedSlugs.includes(slug)) return { installed: true, installed_path: null, installed_via: "marketplace" };
-  return { installed: false, installed_path: null, installed_via: null };
-}
-
-export function buildReport(rawRecords, scan, { generatedAt, date, query = "" }) {
+export function buildReport(rawRecords, { generatedAt, date, query = "" }) {
   const seen = new Set();
   const records = [];
   for (const r of rawRecords) {
@@ -42,7 +24,6 @@ export function buildReport(rawRecords, scan, { generatedAt, date, query = "" })
     const id = idOf(r);
     if (seen.has(id)) continue;
     seen.add(id);
-    const inst = matchInstalled(r, scan);
     records.push({
       id,
       name: r.name,
@@ -50,11 +31,10 @@ export function buildReport(rawRecords, scan, { generatedAt, date, query = "" })
       category: r.category,
       stars: r.stars ?? null,
       stars_display: r.stars_display ?? null,
+      version: r.version ?? null,
+      contributors: r.contributors ?? null,
       description: r.description ?? "",
       efficiency_gain: r.efficiency_gain ?? "",
-      installed: inst.installed,
-      installed_path: inst.installed_path,
-      installed_via: inst.installed_via,
       sources: r.sources ?? [],
       confidence: r.confidence ?? "medium",
       use_cases: Array.isArray(r.use_cases) ? r.use_cases : [],
@@ -80,26 +60,29 @@ export function validateReport(report) {
 export function renderMarkdown(report) {
   const lines = [];
   lines.push("# Claude Efficiency Repos — Research Report", "");
-  lines.push(`> Generated: ${report.generated_at}. Star counts are time-sensitive snapshots.`, "");
+  lines.push(
+    `> Generated: ${report.generated_at}. Star/version/contributor counts are time-sensitive snapshots.`,
+    "",
+  );
   for (const cat of CATEGORIES) {
     const rows = report.records.filter((r) => r.category === cat);
     if (!rows.length) continue;
     lines.push(`## ${CATEGORY_TITLES[cat]}`, "");
-    lines.push("| Repo | Stars | Installed | Description |", "|---|---|---|---|");
+    lines.push("| Repo | Stars | Version | Contributors | Description |", "|---|---|---|---|---|");
     for (const r of rows) {
-      const mark = r.installed ? "✓" : "—";
-      lines.push(`| [${r.name}](${r.url}) | ${r.stars_display ?? "?"} | ${mark} | ${r.description} |`);
+      lines.push(
+        `| [${r.name}](${r.url}) | ${r.stars_display ?? "?"} | ${r.version ?? "—"} | ${r.contributors ?? "—"} | ${r.description} |`,
+      );
     }
     lines.push("");
   }
   return lines.join("\n");
 }
 
-export async function run({ rawRecordsPath, outDir, home, cwd, now = new Date(), query = "" }) {
+export async function run({ rawRecordsPath, outDir, now = new Date(), query = "" }) {
   const raw = JSON.parse(await _readFile(rawRecordsPath, "utf8"));
-  const scan = await scanInstalled({ home, cwd });
   const date = now.toISOString().slice(0, 10);
-  const report = buildReport(raw, scan, { generatedAt: now.toISOString(), date, query });
+  const report = buildReport(raw, { generatedAt: now.toISOString(), date, query });
   validateReport(report);
   await mkdir(outDir, { recursive: true });
   const jsonPath = _join(outDir, "report.json");

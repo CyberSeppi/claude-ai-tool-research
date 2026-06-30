@@ -5,11 +5,10 @@ export interface Rec {
   category: "plugin-skill" | "mcp-server" | "token-tool";
   stars: number | null;
   stars_display: string | null;
+  version: string | null;
+  contributors: number | null;
   description: string;
   efficiency_gain: string;
-  installed: boolean;
-  installed_path: string | null;
-  installed_via: string | null;
   sources: string[];
   confidence: string;
   use_cases: string[];

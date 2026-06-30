@@ -75,13 +75,24 @@ export const columns: ColumnDef<Rec>[] = [
     sortingFn: "basic",
   },
   {
-    accessorKey: "installed",
-    header: "Installed",
+    accessorKey: "version",
+    header: "Version",
     cell: (info) => (
-      <span className={`font-mono text-sm ${info.getValue() ? "text-accent" : "text-dim"}`}>
-        {info.getValue() ? "✓" : "—"}
+      <span className="font-mono text-xs text-muted">
+        {(info.getValue() as string | null) ?? "—"}
       </span>
     ),
+    sortingFn: "alphanumeric",
+  },
+  {
+    accessorKey: "contributors",
+    header: "Contributors",
+    cell: (info) => (
+      <span className="font-mono text-sm">
+        {(info.getValue() as number | null) ?? "—"}
+      </span>
+    ),
+    sortingFn: "basic",
   },
   {
     accessorKey: "use_cases",

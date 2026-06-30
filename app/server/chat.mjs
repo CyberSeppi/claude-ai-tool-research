@@ -1,6 +1,13 @@
 function recordDetail(r) {
+  const meta = [
+    `${r.stars_display ?? "?"} stars`,
+    r.version ? `version ${r.version}` : null,
+    r.contributors != null ? `${r.contributors} contributors` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return [
-    `### ${r.name} (${r.category}) — ${r.stars_display ?? "?"} stars${r.installed ? ", installed" : ""}`,
+    `### ${r.name} (${r.category}) — ${meta}`,
     `URL: ${r.url}`,
     `What it does: ${r.description}`,
     `Efficiency gain: ${r.efficiency_gain}`,
@@ -8,7 +15,7 @@ function recordDetail(r) {
 }
 
 function recordLine(r) {
-  return `- ${r.name} [${r.category}, ${r.stars_display ?? "?"}★${r.installed ? ", installed" : ""}]: ${r.description}`;
+  return `- ${r.name} [${r.category}, ${r.stars_display ?? "?"}★${r.version ? `, ${r.version}` : ""}]: ${r.description}`;
 }
 
 const SYSTEM =

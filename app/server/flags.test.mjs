@@ -7,7 +7,7 @@ import { readFlags, setFlag } from "./flags.mjs";
 import { createApp } from "./app.mjs";
 
 const sample = { generated_at: "t", query: "", records: [
-  { id: "a-b", name: "a/b", url: "https://github.com/a/b", category: "mcp-server", stars: 5, stars_display: "5", description: "d", efficiency_gain: "e", installed: false, installed_path: null, installed_via: null, sources: [], confidence: "high", last_researched: "2026-06-29" },
+  { id: "a-b", name: "a/b", url: "https://github.com/a/b", category: "mcp-server", stars: 5, stars_display: "5", version: null, contributors: null, description: "d", efficiency_gain: "e", sources: [], confidence: "high", last_researched: "2026-06-29" },
 ]};
 
 test("setFlag persists and readFlags reads", () => {

@@ -10,7 +10,7 @@ const sample = {
   generated_at: "2026-06-29T00:00:00Z",
   query: "q",
   records: [
-    { id: "a-b", name: "a/b", url: "https://github.com/a/b", category: "mcp-server", stars: 5, stars_display: "5", description: "d", efficiency_gain: "e", installed: false, installed_path: null, installed_via: null, sources: [], confidence: "high", last_researched: "2026-06-29" },
+    { id: "a-b", name: "a/b", url: "https://github.com/a/b", category: "mcp-server", stars: 5, stars_display: "5", version: "v1.0.0", contributors: 3, description: "d", efficiency_gain: "e", sources: [], confidence: "high", last_researched: "2026-06-29" },
   ],
 };
 

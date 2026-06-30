@@ -36,8 +36,18 @@ export function DetailPanel({ record, onFlag, onClose }: {
         {record.category}
         {" · "}
         {record.stars_display ?? "—"}★
-        {" · "}
-        {record.installed ? `installed via ${record.installed_via}` : "not installed"}
+        {record.version && (
+          <>
+            {" · "}
+            {record.version}
+          </>
+        )}
+        {record.contributors != null && (
+          <>
+            {" · "}
+            {record.contributors} contributors
+          </>
+        )}
       </div>
 
       <p className="mt-4 text-sm text-primary leading-relaxed">{record.description}</p>
