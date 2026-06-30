@@ -1,12 +1,16 @@
+import { useState } from "react";
 import type { Rec } from "./types";
 import { ChatBox } from "./ChatBox";
 import { useResizable } from "./useResizable";
 import { GithubIcon, GlobeIcon, isGithubUrl } from "./icons";
+import { api } from "./api";
 
 export function DetailPanel({ record, onFlag, onClose }: {
   record: Rec; onFlag: (id: string, interesting: boolean) => void; onClose: () => void;
 }) {
   const { width, onPointerDown } = useResizable();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   return (
     <aside style={{ width }} className="fixed right-0 top-0 z-30 h-full overflow-y-auto bg-surface border-l border-edge p-5">
       <div
@@ -93,6 +97,32 @@ export function DetailPanel({ record, onFlag, onClose }: {
       >
         {record.flagged ? "★ Flagged" : "☆ Flag as interesting"}
       </button>
+
+      {record.curated && (
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={async () => {
+              if (!confirm(`Delete '${record.name}' from your curated list?`)) return;
+              setBusy(true);
+              setErr("");
+              try {
+                await api.deleteTool(record.id);
+                onClose();
+                location.reload(); // simplest reload of the table
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : "delete failed");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            disabled={busy}
+            className="rounded border border-edge px-3 py-1 font-mono text-[11px] text-muted hover:border-danger hover:text-danger disabled:opacity-30"
+          >
+            Delete
+          </button>
+        </div>
+      )}
+      {err && <p className="mt-1 font-mono text-[11px] text-danger">{err}</p>}
 
       <div className="mt-6 border-t border-edge pt-4">
         <ChatBox scope="record" ids={[record.id]} title={`Ask about ${record.name}`} />
