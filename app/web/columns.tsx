@@ -1,5 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Rec } from "./types";
+import { GithubIcon, GlobeIcon, isGithubUrl } from "./icons";
 
 export const columns: ColumnDef<Rec>[] = [
   {
@@ -43,17 +44,23 @@ export const columns: ColumnDef<Rec>[] = [
   },
   {
     accessorKey: "name",
-    header: "Repo",
-    cell: (info) => (
-      <a
-        className="font-mono text-accent underline-offset-2 hover:underline"
-        href={info.row.original.url}
-        target="_blank"
-        rel="noreferrer"
-      >
-        {info.getValue() as string}
-      </a>
-    ),
+    header: "Name",
+    cell: (info) => {
+      const r = info.row.original;
+      const Icon = isGithubUrl(r.url) ? GithubIcon : GlobeIcon;
+      return (
+        <a
+          className="inline-flex items-center gap-1.5 font-mono text-accent underline-offset-2 hover:underline"
+          href={r.url}
+          target="_blank"
+          rel="noreferrer"
+          title={isGithubUrl(r.url) ? "GitHub repo" : "Homepage"}
+        >
+          <Icon />
+          {info.getValue() as string}
+        </a>
+      );
+    },
   },
   {
     accessorKey: "category",
