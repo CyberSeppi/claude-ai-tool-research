@@ -10,6 +10,7 @@ import { matchesQuery } from "./filters";
 import { DetailPanel } from "./DetailPanel";
 import { ChatBox } from "./ChatBox";
 import { useResizable } from "./useResizable";
+import { AddToolModal } from "./AddToolModal";
 
 export function App() {
   const [records, setRecords] = useState<Rec[]>([]);
@@ -21,6 +22,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [chatOpen, setChatOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const chatResize = useResizable();
 
   const toggle = (id: string) =>
@@ -119,6 +121,12 @@ export function App() {
           className="rounded bg-accent px-3 py-1.5 font-mono text-xs font-medium tracking-wide text-black hover:bg-accent-bright transition-colors"
         >
           Refresh
+        </button>
+        <button
+          onClick={() => setAddOpen(true)}
+          className="rounded border border-edge px-3 py-1.5 font-mono text-xs font-medium tracking-wide text-primary hover:border-accent hover:text-accent transition-colors"
+        >
+          + Add Tool
         </button>
         {selected.size > 0 && (
           <button
@@ -225,6 +233,12 @@ export function App() {
         const rec = records.find((r) => r.id === selectedId);
         return rec ? <DetailPanel record={rec} onFlag={onFlag} onClose={() => setSelectedId(null)} /> : null;
       })()}
+
+      <AddToolModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={load}
+      />
     </div>
   );
 }
