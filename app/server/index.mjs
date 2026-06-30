@@ -10,7 +10,8 @@ import { loadEmbeddingsConfig } from "./embeddings/config.mjs";
 import { createEmbeddingsClient } from "./embeddings/client.mjs";
 import { createEmbeddingsStore } from "./embeddings/store.mjs";
 import { createRetriever } from "./embeddings/retrieve.mjs";
-import { runBackfill } from "./embeddings/backfill.mjs";
+import { runBackfill, indexRecord } from "./embeddings/backfill.mjs";
+import { enrichFromUrl } from "./enrich.mjs";
 
 // Honour HTTPS_PROXY / NO_PROXY for outbound fetch() calls. Node's
 // built-in undici-based fetch ignores those env vars by default; setting
@@ -46,26 +47,55 @@ const llm = createLlmClient();
 // Embeddings layer — optional, gated by EMBEDDINGS_ENABLED.
 const embeddingsCfg = loadEmbeddingsConfig();
 let retriever = null;
+let embClient = null;
+let embStore = null;
 if (embeddingsCfg.enabled) {
   const oauth = createOAuthClient({ ...embeddingsCfg.auth, fetchImpl: fetch });
-  const client = createEmbeddingsClient({ getConfig: () => embeddingsCfg, oauth });
-  const store = createEmbeddingsStore({
+  embClient = createEmbeddingsClient({ getConfig: () => embeddingsCfg, oauth });
+  embStore = createEmbeddingsStore({
     dbPath: join(dbDir, "embeddings.sqlite"),
     model: embeddingsCfg.model,
     promptVersion: embeddingsCfg.promptVersion,
   });
   if (embeddingsCfg.backfillOnStartup) {
-    const { records } = loadReport(dataDir);
+    const { records } = loadReport(dataDir, dbDir);
     console.log(`[boot] embeddings backfill starting for ${records.length} records…`);
-    const result = await runBackfill({ records, client, store, config: embeddingsCfg });
+    const result = await runBackfill({
+      records,
+      client: embClient,
+      store: embStore,
+      config: embeddingsCfg,
+    });
     console.log(
       `[boot] embeddings backfill: embedded=${result.embedded} skipped=${result.skipped} failed=${result.failed}`,
     );
   }
-  retriever = createRetriever({ client, store, config: embeddingsCfg });
+  retriever = createRetriever({ client: embClient, store: embStore, config: embeddingsCfg });
 }
 
-const app = createApp({ dataDir, dbDir, llm, retriever, embeddingsCfg });
+// Real enrich: closes over the LLM client and the GITHUB_TOKEN env var.
+const enrich = (input) =>
+  enrichFromUrl({
+    url: input.url,
+    name: input.name,
+    githubToken: process.env.GITHUB_TOKEN,
+    llm,
+  });
+
+// Real indexer: fires when POST /api/seeds saves a record. Same client,
+// store, config as the boot backfill — the text_hash gate makes
+// concurrent boot + indexer safe.
+const indexer =
+  embClient && embStore
+    ? (rec) =>
+        indexRecord(rec, {
+          client: embClient,
+          store: embStore,
+          config: embeddingsCfg,
+        }).catch((err) => console.error("[index] failed:", err))
+    : null;
+
+const app = createApp({ dataDir, dbDir, llm, retriever, embeddingsCfg, enrich, indexer });
 app.use("/*", serveStatic({ root: "./dist" }));
 app.get("/*", serveStatic({ path: "./dist/index.html" }));
 
