@@ -120,8 +120,12 @@ for (let i = 0; i < unique.length; i += CHUNK) chunks.push(unique.slice(i, i + C
 const verified = (await parallel(chunks.map((batch, i) => () =>
   agent(
     `Verify these candidate repos. For EACH:\n` +
-    `- If url is https://github.com/... → WebFetch the repo page; confirm it EXISTS (not 404/renamed); read the CURRENT star count and correct stars + stars_display.\n` +
-    `- If url is a non-github homepage (companion-app) → WebFetch the homepage and confirm: (1) product page is live, (2) free tier or open-source claim is EXPLICIT on the page, (3) claimed capability matches the description. Drop entries that are paywalled with no free tier.\n` +
+    `- If url is https://github.com/... → WebFetch the repo page; confirm it EXISTS (not 404/renamed); read the CURRENT star count and correct stars + stars_display. Also check the LICENCE — if proprietary/commercial only, the entry must pass the free-cost gate below.\n` +
+    `- If url is a non-github homepage (companion-app) → WebFetch the homepage and confirm: (1) product page is live, (2) the tool meets the STRICT free-cost gate below, (3) claimed capability matches the description.\n` +
+    `STRICT free-cost gate: KEEP only entries that are EITHER\n` +
+    `  (a) open-source under an OSI-approved licence, OR\n` +
+    `  (b) unconditionally free for personal use with no completion/token/seat quota (Obsidian, LM Studio, Jan.ai pass — fully free with no AI-feature paywall).\n` +
+    `DROP "freemium" entries whose AI features sit behind a paid tier or a monthly quota: Cursor (2000 completions/month limit), Tabnine free, Codeium free tier, Copilot, JetBrains AI Assistant, Windsurf paid tier, etc. — these all FAIL even though their pages say "free". When uncertain, drop.\n` +
     `Fix category only if clearly wrong (${CATS}); DROP any that do not exist or you cannot verify.\n` +
     `KEEP every other field UNCHANGED — especially the use_cases array and repo_url (do not alter, reorder, or drop them).\n` +
     `Return ONLY the surviving, corrected records.\n\nCANDIDATES:\n${JSON.stringify(batch)}`,
