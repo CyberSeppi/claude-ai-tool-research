@@ -67,6 +67,9 @@ TODO.local.md
 data/raw-records.json
 data/report.json
 data/report.md
+# data/seeds.json is intentionally NOT listed here — it is the committed
+# source of truth for manually curated records that survive every
+# research-pipeline.js re-run. Do NOT add data/ as a catch-all.
 
 # Workflow / agent transcripts that may end up here from local debug runs
 *.workflow.jsonl
