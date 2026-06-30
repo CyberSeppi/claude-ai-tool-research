@@ -291,6 +291,33 @@ test("backfill prunes stale records on boot (records present in DB but not in in
   }
 });
 
+test("indexRecord: embeds a single record's chunks", async () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    const { indexRecord } = await import("./backfill.mjs");
+    const result = await indexRecord(
+      { ...RECORD, id: "single", name: "single/repo" },
+      {
+        client: makeClient(),
+        store,
+        config: CFG,
+        fetchReadmeFn: async () => null,
+        log: QUIET_LOG,
+      },
+    );
+    assert.equal(result.embedded, 1);
+    assert.equal(store.count(), 1);
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("backfill re-embeds when a record's text drifted (description changed)", async () => {
   const dir = tmp();
   try {

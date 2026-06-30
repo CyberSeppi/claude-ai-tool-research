@@ -20,6 +20,79 @@ function repoSlugFromRecord(rec) {
   return null;
 }
 
+// indexRecord embeds the chunks for a single record using the same
+// idempotent text_hash gate as the boot-time backfill. Used by both:
+//   - runBackfill (the boot loop)
+//   - app.mjs POST /api/seeds (async via setImmediate)
+//
+// Returns per-record counters so callers can log meaningfully.
+export async function indexRecord(rec, {
+  client,
+  store,
+  config,
+  fetchReadmeFn = defaultFetchReadme,
+  splitMd = defaultSplitMd,
+  log = console,
+}) {
+  let embedded = 0;
+  let skipped = 0;
+  let failed = 0;
+  try {
+    const fields = buildFieldsChunk(rec);
+    const candidates = [{ ...fields, chunkIndex: 0 }];
+
+    if (config.githubToken) {
+      const slug = repoSlugFromRecord(rec);
+      const md = slug
+        ? await fetchReadmeFn({ repoSlug: slug, githubToken: config.githubToken })
+        : null;
+      if (md) {
+        const readmeChunks = splitMd(md, slug, config.chunkMaxChars);
+        readmeChunks.forEach((c, i) =>
+          candidates.push({
+            source: "readme",
+            headingPath: c.headingPath,
+            text: c.text,
+            chunkIndex: i + 1,
+          }),
+        );
+      }
+    }
+
+    const needEmbed = [];
+    for (const c of candidates) {
+      const textHash = sha256(c.text);
+      if (store.hasChunkWithHash(rec.id, c.chunkIndex, textHash)) {
+        skipped++;
+        continue;
+      }
+      needEmbed.push({ ...c, textHash });
+    }
+    if (!needEmbed.length) return { embedded, skipped, failed };
+
+    for (let i = 0; i < needEmbed.length; i += config.batchSize) {
+      const batch = needEmbed.slice(i, i + config.batchSize);
+      const vectors = await client.embedBatch(batch.map((b) => b.text));
+      const rows = batch.map((b, j) => ({
+        recordId: rec.id,
+        chunkIndex: b.chunkIndex,
+        source: b.source,
+        headingPath: b.headingPath ?? null,
+        text: b.text,
+        textHash: b.textHash,
+        vector: vectors[j],
+      }));
+      store.upsertChunks(rows);
+      embedded += rows.length;
+    }
+    log.info?.(`[index] ${rec.id} embedded=${embedded} skipped=${skipped}`);
+  } catch (err) {
+    failed++;
+    log.warn?.(`[index] ${rec.id} failed: ${err.message}`);
+  }
+  return { embedded, skipped, failed };
+}
+
 export async function runBackfill({
   records,
   client,
@@ -50,66 +123,10 @@ export async function runBackfill({
   }
 
   for (const rec of records) {
-    try {
-      // 1) candidate chunks: 1 fields + N readme
-      const fields = buildFieldsChunk(rec);
-      const candidates = [{ ...fields, chunkIndex: 0 }];
-
-      if (config.githubToken) {
-        const slug = repoSlugFromRecord(rec);
-        const md = slug
-          ? await fetchReadmeFn({ repoSlug: slug, githubToken: config.githubToken })
-          : null;
-        if (md) {
-          const readmeChunks = splitMd(md, slug, config.chunkMaxChars);
-          readmeChunks.forEach((c, i) =>
-            candidates.push({
-              source: "readme",
-              headingPath: c.headingPath,
-              text: c.text,
-              chunkIndex: i + 1,
-            }),
-          );
-        }
-      }
-
-      // 2) idempotency: skip chunks only when the EXACT same text is
-      //    already embedded. If text_hash differs (description rewrite,
-      //    README edit, new release-notes section), we re-embed and the
-      //    upsert replaces the stored vector + text. Catches content
-      //    drift that the old hasChunk(id, idx) check missed.
-      const needEmbed = [];
-      for (const c of candidates) {
-        const textHash = sha256(c.text);
-        if (store.hasChunkWithHash(rec.id, c.chunkIndex, textHash)) {
-          skipped++;
-          continue;
-        }
-        needEmbed.push({ ...c, textHash });
-      }
-      if (!needEmbed.length) continue;
-
-      // 3) batch + embed + insert
-      for (let i = 0; i < needEmbed.length; i += config.batchSize) {
-        const batch = needEmbed.slice(i, i + config.batchSize);
-        const vectors = await client.embedBatch(batch.map((b) => b.text));
-        const rows = batch.map((b, j) => ({
-          recordId: rec.id,
-          chunkIndex: b.chunkIndex,
-          source: b.source,
-          headingPath: b.headingPath ?? null,
-          text: b.text,
-          textHash: b.textHash,
-          vector: vectors[j],
-        }));
-        store.upsertChunks(rows);
-        embedded += rows.length;
-      }
-      log.info?.(`[backfill] ${rec.id} embedded=${candidates.length} skipped=${skipped}`);
-    } catch (err) {
-      failed++;
-      log.warn?.(`[backfill] ${rec.id} failed: ${err.message}`);
-    }
+    const r = await indexRecord(rec, { client, store, config, fetchReadmeFn, splitMd, log });
+    embedded += r.embedded;
+    skipped += r.skipped;
+    failed += r.failed;
   }
 
   return { embedded, skipped, failed, pruned };
