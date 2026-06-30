@@ -5,7 +5,7 @@
 # category must be one of: plugin-skill | mcp-server | token-tool | companion-app
 
 topics:
-  - topic: "Claude Code plugins, skill packs, subagent collections, plugin marketplaces"
+  - topic: "Claude Code plugins, skill packs, token-saving skills, subagent collections, plugin marketplaces"
     category: plugin-skill
     weight: 5
 
@@ -21,9 +21,13 @@ topics:
     category: mcp-server
     weight: 3
 
-  - topic: "Token-saving & context-compression tools (terser output, smaller context)"
+  - topic: "Token-saving & context-compression tools: libraries and frameworks that technically compress the context window (LLMLingua, AutoCompressor, selective-context, chunk truncation, prompt distillation, repomix)"
     category: token-tool
     weight: 4
+
+  - topic: "Claude Code skills and prompts that reduce token usage through output-style or language transformation — caveman style, compressed English, terse response modes, verbosity-reduction system prompts, anti-hallucination brevity skills, minimal-output Claude Code plugins"
+    category: token-tool
+    weight: 5
 
   - topic: "Skills / agents for brainstorming & ideation"
     category: plugin-skill
