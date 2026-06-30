@@ -2,7 +2,8 @@ export interface Rec {
   id: string;
   name: string;
   url: string;
-  category: "plugin-skill" | "mcp-server" | "token-tool";
+  repo_url: string | null;
+  category: "plugin-skill" | "mcp-server" | "token-tool" | "companion-app";
   stars: number | null;
   stars_display: string | null;
   version: string | null;
