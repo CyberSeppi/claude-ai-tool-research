@@ -50,7 +50,13 @@ const HEADERS = {
 };
 
 function slugOf(rec) {
-  const m = String(rec.url || rec.name || "")
+  // Prefer the explicit repo_url; fall back to the homepage URL only
+  // when it points at a github repo. Non-github tools (e.g. obsidian.md)
+  // return null and are skipped — they keep stars/version/contributors
+  // at null and the augment phase is a no-op for them.
+  const source =
+    (rec.repo_url && String(rec.repo_url).trim()) || rec.url || rec.name || "";
+  const m = String(source)
     .toLowerCase()
     .match(/github\.com\/([^/]+)\/([^/#?]+)/);
   if (m) return `${m[1]}/${m[2].replace(/\.git$/, "")}`;
