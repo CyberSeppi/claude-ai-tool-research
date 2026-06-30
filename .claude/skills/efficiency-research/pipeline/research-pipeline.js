@@ -92,7 +92,7 @@ phase('Discover')
 const found = (await parallel(topics.map((t, i) => () =>
   agent(
     `Research angle: "${t.topic}" (suggested category: ${t.category || 'any of ' + CATS}, weight ${t.weight ?? 3}/5).\n` +
-    `Find the best, coolest, most-efficient GitHub repositories for this that boost Claude Code efficiency for software development and brainstorming. Return ${(t.weight ?? 3) >= 4 ? '10-15' : '5-8'} repos.\n` +
+    `Find the best, coolest, most-efficient GitHub repositories for this that boost Claude Code efficiency for software development and brainstorming. Include ALL repo shapes: multi-file frameworks, single-skill plugin repos, CLI tools, SKILL.md-only packs, and lightweight utilities — do NOT exclude a repo just because it has few files, low contributor count, or a humorous/opaque name. Return ${(t.weight ?? 3) >= 4 ? '10-15' : '5-8'} repos.\n` +
     `For EACH: WebFetch its GitHub page to VERIFY it exists and read the REAL current star count; set stars (integer) + stars_display (e.g. "~58k", "6.7k", "n/a"). Choose category from ${CATS}. Write a concise one-sentence description and a one-line efficiency_gain. sources = the URLs you used. confidence reflects certainty. use_cases = a NON-EMPTY array of 1+ tags from: ${USE_CASES}.\n` +
     `Only include REAL, existing repos. For pure-GitHub tools: name = owner/repo, url = the https GitHub URL, repo_url = same as url (or leave null and the build step will fall back).\n` +
     `For companion-app entries (tools that aren't primarily a GitHub repo — Obsidian, LM Studio, …): name = product name, url = canonical homepage (obsidian.md, lmstudio.ai, …); optionally fill repo_url if a meaningful GitHub presence exists (releases repo, plugin-list repo).\n` +
@@ -126,7 +126,7 @@ const verified = (await parallel(chunks.map((batch, i) => () =>
     `  (a) open-source under an OSI-approved licence, OR\n` +
     `  (b) unconditionally free for personal use with no completion/token/seat quota (Obsidian, LM Studio, Jan.ai pass — fully free with no AI-feature paywall).\n` +
     `DROP "freemium" entries whose AI features sit behind a paid tier or a monthly quota: Cursor (2000 completions/month limit), Tabnine free, Codeium free tier, Copilot, JetBrains AI Assistant, Windsurf paid tier, etc. — these all FAIL even though their pages say "free". When uncertain, drop.\n` +
-    `Fix category only if clearly wrong (${CATS}); DROP any that do not exist or you cannot verify.\n` +
+    `Fix category only if clearly wrong (${CATS}); DROP any that do not exist or you cannot verify. Do NOT drop based on the tone, naming style, or informality of the project — a humorous name, jokey README, or caveman-style prose voice is not grounds for rejection; apply only the licence gate and the existence check.\n` +
     `KEEP every other field UNCHANGED — especially the use_cases array and repo_url (do not alter, reorder, or drop them).\n` +
     `Return ONLY the surviving, corrected records.\n\nCANDIDATES:\n${JSON.stringify(batch)}`,
     { label: `verify:${i}`, phase: 'Verify', schema: RECORD_SCHEMA, model: 'sonnet', agentType: 'general-purpose' }
