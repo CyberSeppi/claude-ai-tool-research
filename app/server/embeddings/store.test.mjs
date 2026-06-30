@@ -265,3 +265,34 @@ test("deleteRecords: empty input is a no-op", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("hasChunkWithHash: matches when text_hash is identical, miss when changed", () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    store.upsertChunks([
+      {
+        recordId: "r1",
+        chunkIndex: 0,
+        source: "fields",
+        headingPath: null,
+        text: "original",
+        textHash: "hash-A",
+        vector: unitVec(4, 1),
+      },
+    ]);
+    // exact match → true
+    assert.equal(store.hasChunkWithHash("r1", 0, "hash-A"), true);
+    // different hash (text changed since last embed) → false
+    assert.equal(store.hasChunkWithHash("r1", 0, "hash-B"), false);
+    // hasChunk (hash-agnostic) is still true
+    assert.equal(store.hasChunk("r1", 0), true);
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

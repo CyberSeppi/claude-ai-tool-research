@@ -57,6 +57,11 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
       `SELECT 1 FROM embedded_chunks
        WHERE record_id = ? AND chunk_index = ? AND model = ? AND prompt_version = ?`,
     ),
+    hasWithHash: db.prepare(
+      `SELECT 1 FROM embedded_chunks
+       WHERE record_id = ? AND chunk_index = ? AND text_hash = ?
+         AND model = ? AND prompt_version = ?`,
+    ),
     upsert: db.prepare(`
       INSERT INTO embedded_chunks
         (record_id, chunk_index, source, heading_path, text, text_hash,
@@ -111,6 +116,19 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
 
   function hasChunk(recordId, chunkIndex) {
     return stmts.has.get(recordId, chunkIndex, model, promptVersion) !== undefined;
+  }
+
+  // True only when the chunk exists AND its stored text_hash matches.
+  // Used by backfill to detect when a record's fields/readme changed
+  // since the last embed pass (description rewritten, README edited,
+  // upstream tag bumped with new release notes, etc.) — in that case
+  // hasChunk(id, idx) still says true, but hasChunkWithHash returns
+  // false so the chunk is re-embedded and the row upserted.
+  function hasChunkWithHash(recordId, chunkIndex, textHash) {
+    return (
+      stmts.hasWithHash.get(recordId, chunkIndex, textHash, model, promptVersion) !==
+      undefined
+    );
   }
 
   function allChunks() {
@@ -176,6 +194,7 @@ export function createEmbeddingsStore({ dbPath, model, promptVersion }) {
   return {
     upsertChunks,
     hasChunk,
+    hasChunkWithHash,
     allChunks,
     count,
     cosineTopK,

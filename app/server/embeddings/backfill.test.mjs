@@ -290,3 +290,44 @@ test("backfill prunes stale records on boot (records present in DB but not in in
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("backfill re-embeds when a record's text drifted (description changed)", async () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    // First pass: original description
+    await runBackfill({
+      records: [{ ...RECORD, description: "original" }],
+      client: makeClient(),
+      store,
+      config: CFG,
+      fetchReadmeFn: async () => null,
+      log: QUIET_LOG,
+    });
+    assert.equal(store.count(), 1, "one fields chunk");
+
+    // Second pass: same id, different description → drift detected
+    const second = await runBackfill({
+      records: [{ ...RECORD, description: "REWRITTEN — completely different prose now" }],
+      client: makeClient(),
+      store,
+      config: CFG,
+      fetchReadmeFn: async () => null,
+      log: QUIET_LOG,
+    });
+    assert.equal(second.embedded, 1, "drift detected → re-embedded");
+    assert.equal(second.skipped, 0);
+    // count is still 1 because the upsert replaces the row
+    assert.equal(store.count(), 1);
+    // Stored text now reflects the new description
+    const chunk = store.allChunks()[0];
+    assert.match(chunk.text, /REWRITTEN/);
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

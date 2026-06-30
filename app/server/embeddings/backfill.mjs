@@ -73,14 +73,19 @@ export async function runBackfill({
         }
       }
 
-      // 2) idempotency: skip chunks already in the store
+      // 2) idempotency: skip chunks only when the EXACT same text is
+      //    already embedded. If text_hash differs (description rewrite,
+      //    README edit, new release-notes section), we re-embed and the
+      //    upsert replaces the stored vector + text. Catches content
+      //    drift that the old hasChunk(id, idx) check missed.
       const needEmbed = [];
       for (const c of candidates) {
-        if (store.hasChunk(rec.id, c.chunkIndex)) {
+        const textHash = sha256(c.text);
+        if (store.hasChunkWithHash(rec.id, c.chunkIndex, textHash)) {
           skipped++;
           continue;
         }
-        needEmbed.push({ ...c, textHash: sha256(c.text) });
+        needEmbed.push({ ...c, textHash });
       }
       if (!needEmbed.length) continue;
 
