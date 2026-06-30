@@ -14,7 +14,7 @@ export function createApp(opts = {}) {
   app.get("/api/health", (c) => c.json({ ok: true }));
 
   app.get("/api/records", (c) => {
-    const { generated_at, records } = loadReport(dataDir);
+    const { generated_at, records } = loadReport(dataDir, dbDir);
     const flags = readFlags(dbDir);
     const merged = records.map((r) => ({
       ...r,
@@ -25,7 +25,7 @@ export function createApp(opts = {}) {
   });
 
   app.post("/api/refresh", (c) => {
-    const { generated_at, records } = loadReport(dataDir);
+    const { generated_at, records } = loadReport(dataDir, dbDir);
     return c.json({ generated_at, count: records.length });
   });
 
@@ -44,7 +44,7 @@ export function createApp(opts = {}) {
     if (!message.trim()) return c.json({ error: "empty message" }, 400);
     if (!llm) return c.json({ error: "chat not configured" }, 503);
 
-    const { records } = loadReport(dataDir);
+    const { records } = loadReport(dataDir, dbDir);
     const flags = readFlags(dbDir);
     const merged = records.map((r) => ({ ...r, flagged: Boolean(flags[r.id]?.interesting) }));
 
