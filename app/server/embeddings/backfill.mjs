@@ -32,6 +32,22 @@ export async function runBackfill({
   let embedded = 0;
   let skipped = 0;
   let failed = 0;
+  let pruned = 0;
+
+  // Boot-time prune: drop chunks for record_ids that the current report
+  // no longer carries. The research pipeline is non-deterministic — a
+  // re-run may swap out some repos for newer hits. Without this prune,
+  // their chunks linger in the DB forever, growing the index and
+  // diluting retrieval. We only run the prune when the store supports
+  // it (the helpers are optional so older callers don't break).
+  if (typeof store.listRecordIds === "function" && typeof store.deleteRecords === "function") {
+    const currentIds = new Set(records.map((r) => r.id).filter(Boolean));
+    const stale = store.listRecordIds().filter((id) => !currentIds.has(id));
+    if (stale.length) {
+      pruned = store.deleteRecords(stale);
+      log.info?.(`[backfill] pruned ${stale.length} stale records (${pruned} chunks)`);
+    }
+  }
 
   for (const rec of records) {
     try {
@@ -91,5 +107,5 @@ export async function runBackfill({
     }
   }
 
-  return { embedded, skipped, failed };
+  return { embedded, skipped, failed, pruned };
 }

@@ -173,7 +173,7 @@ test("empty records array → zero work, zero failures", async () => {
       fetchReadmeFn: async () => null,
       log: QUIET_LOG,
     });
-    assert.deepEqual(result, { embedded: 0, skipped: 0, failed: 0 });
+    assert.deepEqual(result, { embedded: 0, skipped: 0, failed: 0, pruned: 0 });
     store.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -246,6 +246,45 @@ test("backfill: record with repo_url uses it for the README fetch", async () => 
     });
     assert.equal(lastSlug, "obsidianmd/obsidian-releases");
     assert.ok(result.embedded >= 2, "fields + readme chunks");
+    store.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("backfill prunes stale records on boot (records present in DB but not in input)", async () => {
+  const dir = tmp();
+  try {
+    const store = createEmbeddingsStore({
+      dbPath: join(dir, "x.sqlite"),
+      model: "m",
+      promptVersion: 1,
+    });
+    // First run: stage two records into the DB.
+    await runBackfill({
+      records: [
+        { ...RECORD, id: "keep", name: "keep/repo" },
+        { ...RECORD, id: "drop", name: "drop/repo" },
+      ],
+      client: makeClient(),
+      store,
+      config: CFG,
+      fetchReadmeFn: async () => null,
+      log: QUIET_LOG,
+    });
+    assert.equal(store.listRecordIds().sort().join(","), "drop,keep");
+
+    // Second run: only "keep" is in records — "drop" should be pruned.
+    const result = await runBackfill({
+      records: [{ ...RECORD, id: "keep", name: "keep/repo" }],
+      client: makeClient(),
+      store,
+      config: CFG,
+      fetchReadmeFn: async () => null,
+      log: QUIET_LOG,
+    });
+    assert.equal(result.pruned, 1, "one stale chunk pruned");
+    assert.deepEqual(store.listRecordIds(), ["keep"]);
     store.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
