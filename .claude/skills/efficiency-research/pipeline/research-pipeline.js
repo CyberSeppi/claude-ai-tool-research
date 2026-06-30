@@ -23,6 +23,7 @@ export const meta = {
     { title: 'Topics', detail: 'read research-topics.yaml' },
     { title: 'Discover', detail: 'parallel research per topic (assigns use_cases)' },
     { title: 'Verify', detail: 'WebFetch each repo, correct stars, drop dead' },
+    { title: 'CoMention', detail: 'extract tool names mentioned inside other records, verify them too' },
   ],
 }
 
@@ -141,13 +142,75 @@ const verified = (await parallel(chunks.map((batch, i) => () =>
   )
 ))).filter(Boolean).flatMap((x) => x.records || [])
 
-const finalMap = new Map()
+const verifiedMap = new Map()
 for (const r of verified) {
   const k = slug(r.url, r.name)
-  if (k && !finalMap.has(k)) finalMap.set(k, { ...r, name: k })
+  if (k && !verifiedMap.has(k)) verifiedMap.set(k, { ...r, name: k })
 }
-const finalRecords = [...finalMap.values()].sort((a, b) => (b.stars || 0) - (a.stars || 0))
-log(`verified ${finalRecords.length} repos (dropped ${unique.length - finalRecords.length})`)
+log(`verified ${verifiedMap.size} repos (dropped ${unique.length - verifiedMap.size})`)
+
+// ── Co-mention extract ─────────────────────────────────────────────────────
+// Many verified records mention OTHER tools by name in their description
+// or efficiency_gain — e.g. tokless's description names "RTK, Caveman,
+// CodeGraph, Context-Mode". Treat those as fresh discover candidates.
+// Pattern: post-cutoff repos that aren't in any topic's named-examples
+// list still surface this way, because at least one verified record
+// names them in its prose.
+phase('CoMention')
+const knownSlugs = new Set([...verifiedMap.keys()])
+const corpus = [...verifiedMap.values()]
+  .map((r) => `[${r.name}] ${r.description ?? ''} || ${r.efficiency_gain ?? ''}`)
+  .join('\n')
+const comentioned = await agent(
+  `From the corpus below, extract names of TOOLS / GITHUB REPOS that are MENTIONED inside another record's description or efficiency_gain ` +
+  `but are NOT themselves the subject of that record. Examples of the pattern: a record says "wires together RTK + Caveman + CodeGraph + Context-Mode" — RTK, Caveman, CodeGraph, Context-Mode are co-mentions.\n` +
+  `Return ONLY plausible tool names (lowercase, hyphenated), 1 per entry, with an optional likely github slug if you can guess it confidently from the surrounding context (otherwise leave repoGuess null). ` +
+  `Skip generic terms (npm, GitHub, Python, Claude, MCP, RAG). Skip names that are already keys in this seen-set: ${JSON.stringify([...knownSlugs])}.\n\nCORPUS:\n${corpus}`,
+  {
+    label: 'comention-extract',
+    phase: 'CoMention',
+    model: 'sonnet',
+    agentType: 'general-purpose',
+    schema: {
+      type: 'object',
+      properties: {
+        candidates: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              repoGuess: { type: ['string', 'null'] },
+            },
+            required: ['name'],
+          },
+        },
+      },
+      required: ['candidates'],
+    },
+  }
+)
+const comList = (comentioned?.candidates ?? []).filter(
+  (c) => c?.name && !knownSlugs.has(c.name.toLowerCase().trim())
+)
+log(`co-mentioned candidates: ${comList.length}`)
+
+let extraRecords = []
+if (comList.length > 0) {
+  const coRes = await agent(
+    `Verify whether each of these tool names corresponds to a REAL open-source GitHub repo or unconditionally-free product that boosts Claude Code efficiency. For each: use WebSearch + WebFetch to find the canonical github url or homepage, confirm it exists, read the real star count and license. DROP anything that fails the strict free-cost gate (OSI license OR fully free for personal use with no AI-feature quota). Return a records array in the same schema as the discover phase — name/url/repo_url/category/stars/stars_display/description/efficiency_gain/use_cases/sources/confidence.\n\nCANDIDATES: ${JSON.stringify(comList)}`,
+    { label: 'comention-verify', phase: 'CoMention', schema: RECORD_SCHEMA, model: 'sonnet', agentType: 'general-purpose' }
+  )
+  extraRecords = (coRes?.records ?? []).filter((r) => r?.url)
+  for (const r of extraRecords) {
+    const k = slug(r.url, r.name)
+    if (k && !verifiedMap.has(k)) verifiedMap.set(k, { ...r, name: k })
+  }
+  log(`co-mention added ${extraRecords.length} new records`)
+}
+
+const finalRecords = [...verifiedMap.values()].sort((a, b) => (b.stars || 0) - (a.stars || 0))
+log(`final ${finalRecords.length} repos`)
 
 // Return records directly to the parent (main loop) — the parent
 // writes data/raw-records.json itself with the Write tool. Avoids the

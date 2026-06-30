@@ -29,7 +29,7 @@ topics:
     category: token-tool
     weight: 5
 
-  - topic: "Token-saving CLI proxies, shell wrappers, and output interceptors for Claude Code — tools that sit between the shell and the LLM (or between the LLM client and the provider), rewrite or filter tool_result blocks before they reach the context window, and reduce token usage without changing Claude's response style. Mechanisms: CLI command wrappers that strip boilerplate from build/test/git output, HTTP proxy layers that compress in-flight, pre-tool-use hook utilities, stdout truncation skills. Named examples: rtk-ai/rtk (Rust CLI proxy, 60-90% savings), headroomlabs-ai/headroom (Python HTTP proxy + MCP server, 60-95% savings), edouard-claude/snip, claudioemmanuel/squeez, HoangP8/tokless"
+  - topic: "Token-saving CLI proxies, shell wrappers, and output interceptors for Claude Code — tools that sit between the shell and the LLM (or between the LLM client and the provider), rewrite or filter tool_result blocks before they reach the context window, and reduce token usage without changing Claude's response style. Mechanisms: CLI command wrappers that strip boilerplate from build/test/git output, HTTP proxy layers that compress in-flight, pre-tool-use hook utilities, stdout truncation skills. Named examples: rtk-ai/rtk (Rust CLI proxy, 60-90% savings), headroomlabs-ai/headroom (Python HTTP proxy + MCP server, 60-95% savings), edouard-claude/snip, claudioemmanuel/squeez, HoangP8/tokless, and any installer/bundler that wires these together (e.g. a 'context-mode' switcher)"
     category: token-tool
     weight: 5
 
@@ -45,7 +45,7 @@ topics:
     category: mcp-server
     weight: 5
 
-  - topic: "Code-RAG / repo-aware retrieval & embedding MCP servers and skills (codebase indexing, semantic code search, large-monorepo grounding) — boost Claude Code accuracy on big codebases"
+  - topic: "Code-RAG / repo-aware retrieval & embedding MCP servers and skills (codebase indexing, semantic code search, large-monorepo grounding) — boost Claude Code accuracy on big codebases. Pre-indexed code knowledge graphs that auto-sync on code changes count too. Named examples: colbymchenry/codegraph (TS, pre-indexed knowledge graph, 56k+ stars, local-only — multi-agent integration: Claude Code, Codex, Gemini, Cursor, OpenCode, Antigravity, Kiro), optave/ops-codegraph-tool (34-tool MCP), and any similar pre-indexed-graph project"
     category: mcp-server
     weight: 5
 
