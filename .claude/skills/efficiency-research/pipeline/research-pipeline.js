@@ -2,20 +2,27 @@
 //
 // Run from the repository root with the Workflow tool:
 //   Workflow({ scriptPath: ".claude/skills/efficiency-research/pipeline/research-pipeline.js" })
-// then:  npm run report:augment    (GitHub REST: fills in version + contributors)
-//        npm run report:build      (dedupes, validates, writes report.json/report.md)
 //
-// It is driven by research-topics.yaml (the control surface) and writes data/raw-records.json.
-// Paths are relative to the repo root (the project cwd the workflow agents run in).
+// The workflow RETURNS `{ records: [...] }`. The caller (main loop) is
+// expected to JSON.stringify the records and write them to
+// data/raw-records.json with the Write tool. Earlier versions used an
+// internal "write-raw-records" sub-agent for this; that pattern stalled
+// reliably on 100KB+ inline payloads, so the write moved outside.
+//
+// After the records land in raw-records.json, run:
+//   npm run report:augment    (GitHub REST: fills in stars/version/contributors)
+//   npm run report:build      (dedupes, validates, writes report.json/report.md)
+//
+// It is driven by research-topics.yaml (the control surface). Paths are
+// relative to the repo root (the project cwd the workflow agents run in).
 
 export const meta = {
   name: 'efficiency-research-pipeline',
-  description: 'Full efficiency-research cycle: read research-topics.yaml, discover repos per topic (with use_cases), dedupe, verify stars on GitHub, write data/raw-records.json',
+  description: 'Full efficiency-research cycle: read research-topics.yaml, discover repos per topic (with use_cases), dedupe, verify stars on GitHub. Returns records to the parent loop, which writes data/raw-records.json itself.',
   phases: [
     { title: 'Topics', detail: 'read research-topics.yaml' },
     { title: 'Discover', detail: 'parallel research per topic (assigns use_cases)' },
     { title: 'Verify', detail: 'WebFetch each repo, correct stars, drop dead' },
-    { title: 'Write', detail: 'dedupe + write data/raw-records.json' },
   ],
 }
 
@@ -142,12 +149,11 @@ for (const r of verified) {
 const finalRecords = [...finalMap.values()].sort((a, b) => (b.stars || 0) - (a.stars || 0))
 log(`verified ${finalRecords.length} repos (dropped ${unique.length - finalRecords.length})`)
 
-// ── Write ─────────────────────────────────────────────────────────────────
-phase('Write')
-const payload = JSON.stringify(finalRecords, null, 2)
-const summary = await agent(
-  `Use the Write tool to overwrite the file data/raw-records.json at the repository root with the following JSON array VERBATIM (do not modify, add, or remove any content). After writing, reply with the total record count and a per-category tally.\n\nJSON:\n${payload}`,
-  { label: 'write-raw-records', phase: 'Write', model: 'sonnet', agentType: 'general-purpose' }
-)
-
-return { discovered: unique.length, written: finalRecords.length, summary }
+// Return records directly to the parent (main loop) — the parent
+// writes data/raw-records.json itself with the Write tool. Avoids the
+// write-raw-records sub-agent stall pattern: a Sonnet-class agent
+// asked to "use Write to overwrite this file with this 100KB+ JSON
+// VERBATIM" reliably stalls inside its tool loop on large payloads
+// across multiple retries. The parent has no such loop and writes
+// atomically.
+return { discovered: unique.length, verified: finalRecords.length, records: finalRecords }
